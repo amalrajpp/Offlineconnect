@@ -215,10 +215,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
           );
         }
 
-        return ListView.separated(
+        return ListView.builder(
           itemCount: docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+          padding: const EdgeInsets.only(top: 8, bottom: 84), // Avoid nav bar overlap
           itemBuilder: (context, index) {
             final doc = docs[index];
             final data = (doc.data() as Map<String, dynamic>?) ?? {};
@@ -242,30 +241,37 @@ class _ChatsScreenState extends State<ChatsScreen> {
             at ??= _acceptedAtByPeer[_canonicalPeerId(otherId)];
 
             return Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
+              clipBehavior: Clip.antiAlias,
               child: ListTile(
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
+                  horizontal: 16,
+                  vertical: 10,
                 ),
                 leading: ConnectedAvatar(offlineId: otherId, shortId: shortId),
-                title: ConnectedName(offlineId: otherId, fallback: 'User $shortId…'),
+                title: ConnectedName(
+                  offlineId: otherId,
+                  fallback: 'User $shortId…',
+                ),
                 subtitle: Text(
                   lastMessageText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    fontSize: 14,
+                  ),
                 ),
                 trailing: at == null
                     ? null
-                    : Text(
-                        _formatTime(at),
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.6,
+                    : Padding(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        child: Text(
+                          _formatTime(at),
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
                           ),
-                          fontSize: 12,
                         ),
                       ),
                 onTap: () {
@@ -337,7 +343,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
               vertical: 8,
             ),
             leading: ConnectedAvatar(offlineId: otherId, shortId: shortId),
-            title: ConnectedName(offlineId: otherId, fallback: 'User $shortId…'),
+            title: ConnectedName(
+              offlineId: otherId,
+              fallback: 'User $shortId…',
+            ),
             subtitle: Text('Connected • ${_formatTime(conn.firstMetAt)}'),
             onTap: () {
               Get.to(

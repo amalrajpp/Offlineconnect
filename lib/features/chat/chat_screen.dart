@@ -230,15 +230,15 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   Container(
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          theme.colorScheme.primary,
-                          theme.colorScheme.secondary,
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      color: theme.colorScheme.primary,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: IconButton(
                       onPressed: _send,
@@ -283,30 +283,26 @@ class _MessageBubble extends StatelessWidget {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          gradient: isMine
-              ? LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary,
-                    theme.colorScheme.tertiary,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
           color: isMine
-              ? null
-              : theme.colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.7,
-                ),
+              ? theme.colorScheme.primary
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(20),
             topRight: const Radius.circular(20),
             bottomLeft: Radius.circular(isMine ? 20 : 4),
             bottomRight: Radius.circular(isMine ? 4 : 20),
           ),
+          boxShadow: [
+            if (isMine)
+              BoxShadow(
+                color: theme.colorScheme.primary.withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -317,10 +313,10 @@ class _MessageBubble extends StatelessWidget {
                 color: isMine
                     ? theme.colorScheme.onPrimary
                     : theme.colorScheme.onSurface,
-                fontSize: 15,
+                fontSize: 16,
               ),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -328,6 +324,7 @@ class _MessageBubble extends StatelessWidget {
                   '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
                   style: TextStyle(
                     fontSize: 11,
+                    fontWeight: FontWeight.w500,
                     color: isMine
                         ? theme.colorScheme.onPrimary.withValues(alpha: 0.7)
                         : theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -339,8 +336,8 @@ class _MessageBubble extends StatelessWidget {
                     isRead ? Icons.done_all : Icons.done,
                     size: 14,
                     color: isRead
-                        ? Colors.lightBlueAccent
-                        : theme.colorScheme.onPrimary.withValues(alpha: 0.7),
+                        ? Colors.white
+                        : theme.colorScheme.onPrimary.withValues(alpha: 0.5),
                   ),
                 ],
               ],

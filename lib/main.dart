@@ -46,42 +46,50 @@ class OfflineConnectApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: const Color(0xFFFFFC00), // Snapchat Yellow
+        colorSchemeSeed: const Color(0xFFFFCC00), // Warmer Yellow
         brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFFFFFFF), // Pure White
+        scaffoldBackgroundColor: const Color(0xFFFAFAFA), // Off-white modern
         cardTheme: CardThemeData(
           elevation: 0,
-          color: const Color(0xFFF2F2F2),
+          color: const Color(0xFFFFFFFF),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: Color(0x0A000000), width: 1),
           ),
         ),
         navigationBarTheme: NavigationBarThemeData(
           indicatorShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(24),
           ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
+          backgroundColor: const Color(0xFFFFFFFF),
+          surfaceTintColor: Colors.transparent,
+          elevation: 8,
+          shadowColor: const Color(0x1A000000),
         ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: const Color(0xFFFFFC00), // Snapchat Yellow
+        colorSchemeSeed: const Color(0xFFFFCC00), // Warmer Yellow
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF000000), // Pure Black
+        scaffoldBackgroundColor: const Color(0xFF121212), // Premium Dark
         cardTheme: CardThemeData(
-          color: const Color(0xFF1A1A1A),
+          color: const Color(0xFF1E1E1E),
           elevation: 0,
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: Color(0x1AFFFFFF), width: 1),
           ),
         ),
         navigationBarTheme: NavigationBarThemeData(
           indicatorShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+            borderRadius: BorderRadius.circular(24),
           ),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
+          backgroundColor: const Color(0xFF1E1E1E),
+          surfaceTintColor: Colors.transparent,
+          elevation: 8,
+          shadowColor: const Color(0x33000000),
         ),
       ),
       themeMode: ThemeMode.system,

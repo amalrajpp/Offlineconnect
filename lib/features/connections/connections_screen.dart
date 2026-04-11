@@ -129,20 +129,26 @@ class ConnectionsScreen extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color:
-            theme.cardTheme.color ?? theme.colorScheme.surfaceContainerHighest,
+        color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isAccepted
-              ? theme.colorScheme.primary
+              ? theme.colorScheme.primary.withValues(alpha: 0.15)
               : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-          width: isAccepted ? 2 : 1,
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 10,
+          vertical: 4,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         leading: isAccepted
@@ -194,18 +200,25 @@ class ConnectionsScreen extends StatelessWidget {
             ? Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 12,
+                  vertical: 10,
                 ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primary,
                   borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: const [
                     Icon(
                       Icons.chat_bubble_rounded,
-                      size: 20,
+                      size: 18,
                       color: Colors.black,
                     ),
                     SizedBox(width: 6),
@@ -213,7 +226,8 @@ class ConnectionsScreen extends StatelessWidget {
                       'Chat',
                       style: TextStyle(
                         color: Colors.black,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
                       ),
                     ),
                   ],
@@ -316,7 +330,11 @@ class ConnectedAvatar extends StatelessWidget {
   final String offlineId;
   final String shortId;
 
-  const ConnectedAvatar({super.key, required this.offlineId, required this.shortId});
+  const ConnectedAvatar({
+    super.key,
+    required this.offlineId,
+    required this.shortId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -371,7 +389,11 @@ class ConnectedName extends StatelessWidget {
   final String offlineId;
   final String fallback;
 
-  const ConnectedName({super.key, required this.offlineId, required this.fallback});
+  const ConnectedName({
+    super.key,
+    required this.offlineId,
+    required this.fallback,
+  });
 
   @override
   Widget build(BuildContext context) {

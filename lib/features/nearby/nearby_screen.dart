@@ -198,16 +198,17 @@ class _NearbyScreenState extends State<NearbyScreen>
         Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: theme.colorScheme.onSurface, width: 2),
+            border: Border.all(color: theme.colorScheme.primary, width: 2),
             boxShadow: [
               BoxShadow(
-                color: theme.colorScheme.primary.withValues(alpha: 0.5),
-                blurRadius: 8,
+                color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                blurRadius: 10,
+                spreadRadius: 2,
               ),
             ],
           ),
           child: CircleAvatar(
-            radius: 24,
+            radius: 26,
             backgroundColor: theme.colorScheme.surfaceContainerHighest,
             backgroundImage: AssetImage(AppAssets.getAvatarPath(peer.avatarId)),
           ),
