@@ -154,7 +154,7 @@ class ConnectionsScreen extends StatelessWidget {
                     width: 2,
                   ),
                 ),
-                child: _ConnectedAvatar(
+                child: ConnectedAvatar(
                   offlineId: conn.otherOfflineId,
                   shortId: shortId,
                 ),
@@ -176,7 +176,7 @@ class ConnectionsScreen extends StatelessWidget {
                 ),
               ),
         title: isAccepted
-            ? _ConnectedName(
+            ? ConnectedName(
                 offlineId: conn.otherOfflineId,
                 fallback: 'User $shortId…',
               )
@@ -312,11 +312,11 @@ class ConnectionsScreen extends StatelessWidget {
 /// Fetches and displays the connected user's profile photo.
 ///
 /// Photos are only visible after mutual connection (privacy-first).
-class _ConnectedAvatar extends StatelessWidget {
+class ConnectedAvatar extends StatelessWidget {
   final String offlineId;
   final String shortId;
 
-  const _ConnectedAvatar({required this.offlineId, required this.shortId});
+  const ConnectedAvatar({super.key, required this.offlineId, required this.shortId});
 
   @override
   Widget build(BuildContext context) {
@@ -347,17 +347,19 @@ class _ConnectedAvatar extends StatelessWidget {
 
         return CircleAvatar(
           backgroundColor: Colors.green,
-          backgroundImage: profile != null 
-              ? AssetImage(AppAssets.getAvatarPath(avatarId)) 
+          backgroundImage: profile != null
+              ? AssetImage(AppAssets.getAvatarPath(avatarId))
               : null,
-          child: profile == null ? Text(
-            shortId.substring(0, 2).toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ) : null,
+          child: profile == null
+              ? Text(
+                  shortId.substring(0, 2).toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              : null,
         );
       },
     );
@@ -365,11 +367,11 @@ class _ConnectedAvatar extends StatelessWidget {
 }
 
 /// Fetches and displays the connected user's display name from Firestore.
-class _ConnectedName extends StatelessWidget {
+class ConnectedName extends StatelessWidget {
   final String offlineId;
   final String fallback;
 
-  const _ConnectedName({required this.offlineId, required this.fallback});
+  const ConnectedName({super.key, required this.offlineId, required this.fallback});
 
   @override
   Widget build(BuildContext context) {

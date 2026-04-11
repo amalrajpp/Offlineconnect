@@ -6,6 +6,7 @@ import '../../core/models/connection.dart';
 import '../../core/services/firebase_sync_service.dart';
 import '../../core/services/identity_service.dart';
 import '../../core/services/local_db_service.dart';
+import '../connections/connections_screen.dart';
 import 'chat_screen.dart';
 
 /// Dedicated inbox screen showing all chat conversations.
@@ -249,14 +250,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
                   horizontal: 14,
                   vertical: 8,
                 ),
-                leading: CircleAvatar(
-                  child: Text(shortId.substring(0, 1).toUpperCase()),
-                ),
-                title: Text(
-                  'User $shortId…',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                leading: ConnectedAvatar(offlineId: otherId, shortId: shortId),
+                title: ConnectedName(offlineId: otherId, fallback: 'User $shortId…'),
                 subtitle: Text(
                   lastMessageText,
                   maxLines: 1,
@@ -341,10 +336,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
               horizontal: 14,
               vertical: 8,
             ),
-            leading: CircleAvatar(
-              child: Text(shortId.substring(0, 1).toUpperCase()),
-            ),
-            title: Text('User $shortId…'),
+            leading: ConnectedAvatar(offlineId: otherId, shortId: shortId),
+            title: ConnectedName(offlineId: otherId, fallback: 'User $shortId…'),
             subtitle: Text('Connected • ${_formatTime(conn.firstMetAt)}'),
             onTap: () {
               Get.to(

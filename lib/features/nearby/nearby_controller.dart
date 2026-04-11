@@ -518,6 +518,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
               peer.offlineUsername != null && peer.offlineUsername!.isNotEmpty
               ? '@${peer.offlineUsername}'
               : 'User ${displayPeerId(peer.myHash)}',
+          avatarId: peer.avatarId,
         ),
         rssi: peer.rssi,
       );
@@ -609,6 +610,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
             peer.offlineUsername != null && peer.offlineUsername!.isNotEmpty
             ? '@${peer.offlineUsername}'
             : 'User ${displayPeerId(peer.myHash)}',
+          avatarId: peer.avatarId,
       ),
       rssi: peer.rssi,
     );
@@ -683,6 +685,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
               peer.offlineUsername != null && peer.offlineUsername!.isNotEmpty
               ? '@${peer.offlineUsername}'
               : 'User ${displayPeerId(peer.myHash)}',
+          avatarId: peer.avatarId,
         ),
         rssi: peer.rssi,
       );
@@ -719,6 +722,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
               peer.offlineUsername != null && peer.offlineUsername!.isNotEmpty
               ? '@${peer.offlineUsername}'
               : 'User ${displayPeerId(peer.myHash)}',
+          avatarId: peer.avatarId,
         ),
         rssi: peer.rssi,
       );
