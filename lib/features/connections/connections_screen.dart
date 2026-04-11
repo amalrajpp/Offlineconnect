@@ -1,0 +1,385 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import '../../core/models/connection.dart';
+import '../../core/services/firebase_sync_service.dart';
+import '../chat/chat_screen.dart';
+import 'connections_controller.dart';
+
+/// Displays the list of accepted (and pending) connections from the local DB.
+///
+/// - Accepted connections show the other user's profile photo (fetched from
+///   Firestore) and navigate to the chat screen on tap.
+/// - Pending connections show generic icons without photos.
+class ConnectionsScreen extends StatelessWidget {
+  const ConnectionsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = Get.find<ConnectionsController>();
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Connections'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: () => controller.loadConnections(),
+          ),
+        ],
+      ),
+      body: Obx(() {
+        if (controller.connections.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.radar_outlined,
+                  size: 80,
+                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Your radar is completely quiet.\nSwitch to "Nearby" to start scanning.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final connected = controller.connections
+            .where((c) => c.status == ConnectionStatus.accepted)
+            .toList();
+        final sentRequests = controller.connections
+            .where((c) => c.status == ConnectionStatus.pendingOutgoing)
+            .toList();
+        final receivedRequests = controller.connections
+            .where((c) => c.status == ConnectionStatus.pendingIncoming)
+            .toList();
+        final blocked = controller.connections
+            .where((c) => c.status == ConnectionStatus.blocked)
+            .toList();
+
+        return ListView(
+          padding: const EdgeInsets.only(top: 8, bottom: 20),
+          children: [
+            _buildSectionHeader('Connected', connected.length),
+            ...connected.map((c) => _buildConnectionTile(context, c, true)),
+            _buildSectionHeader('Sent Requests', sentRequests.length),
+            ...sentRequests.map((c) => _buildConnectionTile(context, c, false)),
+            _buildSectionHeader('Received Requests', receivedRequests.length),
+            ...receivedRequests.map(
+              (c) => _buildConnectionTile(context, c, false),
+            ),
+            if (blocked.isNotEmpty) ...[
+              _buildSectionHeader('Blocked', blocked.length),
+              ...blocked.map((c) => _buildConnectionTile(context, c, false)),
+            ],
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildSectionHeader(String title, int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 6),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '($count)',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConnectionTile(
+    BuildContext context,
+    Connection conn,
+    bool isAccepted,
+  ) {
+    final controller = Get.find<ConnectionsController>();
+    final theme = Theme.of(context);
+    final isBusy = controller.isRequestActionBusy(conn.id);
+    final shortId = conn.otherOfflineId.length >= 8
+        ? conn.otherOfflineId.substring(0, 8)
+        : conn.otherOfflineId;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color:
+            theme.cardTheme.color ?? theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isAccepted
+              ? theme.colorScheme.primary
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+          width: isAccepted ? 2 : 1,
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        leading: isAccepted
+            ? Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: theme.colorScheme.primary,
+                    width: 2,
+                  ),
+                ),
+                child: _ConnectedAvatar(
+                  offlineId: conn.otherOfflineId,
+                  shortId: shortId,
+                ),
+              )
+            : Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: _statusColor(
+                    conn.status,
+                    theme,
+                  ).withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _statusIcon(conn.status),
+                  color: _statusColor(conn.status, theme),
+                  size: 20,
+                ),
+              ),
+        title: isAccepted
+            ? _ConnectedName(
+                offlineId: conn.otherOfflineId,
+                fallback: 'User $shortId…',
+              )
+            : Text(
+                'User $shortId…',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+        subtitle: Text(
+          '${_statusLabel(conn.status)}  •  ${_formatDate(conn.firstMetAt)}',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+        trailing: isAccepted
+            ? Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(
+                      Icons.chat_bubble_rounded,
+                      size: 20,
+                      color: Colors.black,
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'Chat',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : conn.status == ConnectionStatus.pendingIncoming
+            ? Wrap(
+                spacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: isBusy
+                        ? null
+                        : () => controller.ignoreIncomingRequest(conn),
+                    child: Text(isBusy ? 'Ignoring…' : 'Ignore'),
+                  ),
+                  FilledButton(
+                    onPressed: isBusy
+                        ? null
+                        : () => controller.acceptIncomingRequest(conn),
+                    child: isBusy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Accept'),
+                  ),
+                ],
+              )
+            : null,
+        onTap: isAccepted
+            ? () {
+                Get.to(
+                  () => ChatScreen(
+                    otherOfflineId: conn.otherOfflineId,
+                    otherDisplayName: 'User $shortId…',
+                  ),
+                  transition: Transition.cupertino,
+                );
+              }
+            : null,
+      ),
+    );
+  }
+
+  // ── Helpers ──
+
+  Color _statusColor(ConnectionStatus status, ThemeData theme) {
+    switch (status) {
+      case ConnectionStatus.accepted:
+        return Colors.green;
+      case ConnectionStatus.pendingOutgoing:
+        return Colors.orange;
+      case ConnectionStatus.pendingIncoming:
+        return Colors.blue;
+      case ConnectionStatus.blocked:
+        return Colors.red;
+    }
+  }
+
+  IconData _statusIcon(ConnectionStatus status) {
+    switch (status) {
+      case ConnectionStatus.accepted:
+        return Icons.check;
+      case ConnectionStatus.pendingOutgoing:
+        return Icons.arrow_upward;
+      case ConnectionStatus.pendingIncoming:
+        return Icons.arrow_downward;
+      case ConnectionStatus.blocked:
+        return Icons.block;
+    }
+  }
+
+  String _statusLabel(ConnectionStatus status) {
+    switch (status) {
+      case ConnectionStatus.accepted:
+        return 'Connected';
+      case ConnectionStatus.pendingOutgoing:
+        return 'Request sent';
+      case ConnectionStatus.pendingIncoming:
+        return 'Incoming request';
+      case ConnectionStatus.blocked:
+        return 'Blocked';
+    }
+  }
+
+  String _formatDate(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+}
+
+/// Fetches and displays the connected user's profile photo.
+///
+/// Photos are only visible after mutual connection (privacy-first).
+class _ConnectedAvatar extends StatelessWidget {
+  final String offlineId;
+  final String shortId;
+
+  const _ConnectedAvatar({required this.offlineId, required this.shortId});
+
+  @override
+  Widget build(BuildContext context) {
+    final firebase = Get.find<FirebaseSyncService>();
+
+    if (!firebase.isFirebaseAvailable) {
+      return CircleAvatar(
+        backgroundColor: Colors.green,
+        child: Text(
+          shortId.substring(0, 2).toUpperCase(),
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+        ),
+      );
+    }
+
+    return FutureBuilder(
+      future: firebase.fetchProfile(offlineId),
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final photoUrl = profile?.photoUrl;
+
+        if (photoUrl != null) {
+          return CircleAvatar(
+            backgroundImage: CachedNetworkImageProvider(photoUrl),
+          );
+        }
+
+        return CircleAvatar(
+          backgroundColor: Colors.green,
+          child: Text(
+            (profile?.displayName ?? shortId).substring(0, 1).toUpperCase(),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Fetches and displays the connected user's display name from Firestore.
+class _ConnectedName extends StatelessWidget {
+  final String offlineId;
+  final String fallback;
+
+  const _ConnectedName({required this.offlineId, required this.fallback});
+
+  @override
+  Widget build(BuildContext context) {
+    final firebase = Get.find<FirebaseSyncService>();
+
+    if (!firebase.isFirebaseAvailable) {
+      return Text(fallback);
+    }
+
+    return FutureBuilder(
+      future: firebase.fetchProfile(offlineId),
+      builder: (context, snapshot) {
+        final name = snapshot.data?.displayName;
+        return Text(name ?? fallback);
+      },
+    );
+  }
+}

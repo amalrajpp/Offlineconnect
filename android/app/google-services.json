@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "265538444033",
+    "project_id": "offlineconnect-20695",
+    "storage_bucket": "offlineconnect-20695.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:265538444033:android:5987cf0d004af8df60d900",
+        "android_client_info": {
+          "package_name": "com.offlineconnect.offline_connect"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCN6_c_8gBvMOuFaWEgFgGbUaIkLeJAGj4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
