@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../core/constants/assets.dart';
 import '../../core/models/connection.dart';
 import '../../core/services/firebase_sync_service.dart';
 import '../chat/chat_screen.dart';
@@ -336,6 +337,7 @@ class _ConnectedAvatar extends StatelessWidget {
       builder: (context, snapshot) {
         final profile = snapshot.data;
         final photoUrl = profile?.photoUrl;
+        final avatarId = profile?.avatarId ?? 0;
 
         if (photoUrl != null) {
           return CircleAvatar(
@@ -345,14 +347,17 @@ class _ConnectedAvatar extends StatelessWidget {
 
         return CircleAvatar(
           backgroundColor: Colors.green,
-          child: Text(
-            (profile?.displayName ?? shortId).substring(0, 1).toUpperCase(),
+          backgroundImage: profile != null 
+              ? AssetImage(AppAssets.getAvatarPath(avatarId)) 
+              : null,
+          child: profile == null ? Text(
+            shortId.substring(0, 2).toUpperCase(),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
-          ),
+          ) : null,
         );
       },
     );

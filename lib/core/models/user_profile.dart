@@ -16,6 +16,9 @@ class UserProfile {
   /// Only visible to mutually connected users.
   final String? photoUrl;
 
+  /// The local Bitwise Bio avatar ID.
+  final int avatarId;
+
   /// Last time the user was seen online (from Firestore).
   final DateTime? lastOnline;
 
@@ -24,17 +27,19 @@ class UserProfile {
     required this.displayName,
     this.bio,
     this.photoUrl,
+    this.avatarId = 0,
     this.lastOnline,
   });
 
   // ── Local SQLite ────────────────────────────────────────────────────────
 
   Map<String, dynamic> toMap() => {
-        'offline_id': offlineId,
-        'display_name': displayName,
-        if (bio != null) 'bio': bio,
-        if (photoUrl != null) 'photo_url': photoUrl,
-      };
+    'offline_id': offlineId,
+    'display_name': displayName,
+    if (bio != null) 'bio': bio,
+    if (photoUrl != null) 'photo_url': photoUrl,
+    'avatar_id': avatarId,
+  };
 
   factory UserProfile.fromMap(Map<String, dynamic> map) {
     return UserProfile(
@@ -42,25 +47,31 @@ class UserProfile {
       displayName: map['display_name'] as String,
       bio: map['bio'] as String?,
       photoUrl: map['photo_url'] as String?,
+      avatarId: map['avatar_id'] as int? ?? 0,
     );
   }
 
   // ── Firestore ───────────────────────────────────────────────────────────
 
   Map<String, dynamic> toFirestoreMap({String? firebaseUid}) => {
-        'displayName': displayName,
-        if (bio != null) 'bio': bio,
-        if (photoUrl != null) 'photoUrl': photoUrl,
-        if (firebaseUid != null) 'firebaseUid': firebaseUid,
-        'lastOnline': FieldValue.serverTimestamp(),
-      };
+    'displayName': displayName,
+    if (bio != null) 'bio': bio,
+    if (photoUrl != null) 'photoUrl': photoUrl,
+    'avatarId': avatarId,
+    if (firebaseUid != null) 'firebaseUid': firebaseUid,
+    'lastOnline': FieldValue.serverTimestamp(),
+  };
 
-  factory UserProfile.fromFirestore(String offlineId, Map<String, dynamic> data) {
+  factory UserProfile.fromFirestore(
+    String offlineId,
+    Map<String, dynamic> data,
+  ) {
     return UserProfile(
       offlineId: offlineId,
       displayName: data['displayName'] as String? ?? 'Unknown',
       bio: data['bio'] as String?,
       photoUrl: data['photoUrl'] as String?,
+      avatarId: data['avatarId'] as int? ?? 0,
       lastOnline: data['lastOnline'] != null
           ? (data['lastOnline'] as Timestamp).toDate()
           : null,
@@ -71,12 +82,14 @@ class UserProfile {
     String? displayName,
     String? bio,
     String? photoUrl,
+    int? avatarId,
   }) {
     return UserProfile(
       offlineId: offlineId,
       displayName: displayName ?? this.displayName,
       bio: bio ?? this.bio,
       photoUrl: photoUrl ?? this.photoUrl,
+      avatarId: avatarId ?? this.avatarId,
       lastOnline: lastOnline,
     );
   }

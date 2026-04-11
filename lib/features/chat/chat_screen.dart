@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../core/constants/assets.dart';
 import '../../core/services/identity_service.dart';
 import 'chat_controller.dart';
 
@@ -81,6 +82,7 @@ class _ChatScreenState extends State<ChatScreen> {
         title: Obx(() {
           final profile = _controller.otherProfile.value;
           final photoUrl = profile?.photoUrl;
+          final avatarId = profile?.avatarId ?? 0;
           final name = profile?.displayName ?? widget.otherDisplayName;
 
           return Row(
@@ -91,16 +93,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 backgroundColor: theme.colorScheme.primaryContainer,
                 backgroundImage: photoUrl != null
                     ? CachedNetworkImageProvider(photoUrl)
-                    : null,
-                child: photoUrl == null
-                    ? Text(
-                        name.substring(0, 1).toUpperCase(),
-                        style: TextStyle(
-                          color: theme.colorScheme.onPrimaryContainer,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
+                    : AssetImage(AppAssets.getAvatarPath(avatarId))
+                          as ImageProvider,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -113,8 +107,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         profile!.bio!,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                       ),
                   ],
@@ -133,9 +128,11 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.cloud_off,
-                      size: 64,
-                      color: theme.colorScheme.error.withValues(alpha: 0.5)),
+                  Icon(
+                    Icons.cloud_off,
+                    size: 64,
+                    color: theme.colorScheme.error.withValues(alpha: 0.5),
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Chat requires an internet connection.\n'
@@ -169,8 +166,9 @@ class _ChatScreenState extends State<ChatScreen> {
                         'No messages yet.\nSay hello! 👋',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.5),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                     )
@@ -201,9 +199,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 bottom: MediaQuery.of(context).padding.bottom + 16,
               ),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.1)),
+                border: Border.all(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.1),
+                ),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Row(
@@ -229,7 +231,10 @@ class _ChatScreenState extends State<ChatScreen> {
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [theme.colorScheme.primary, theme.colorScheme.secondary],
+                        colors: [
+                          theme.colorScheme.primary,
+                          theme.colorScheme.secondary,
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -237,7 +242,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     child: IconButton(
                       onPressed: _send,
-                      icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      icon: const Icon(
+                        Icons.send_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ],
@@ -277,14 +286,21 @@ class _MessageBubble extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 3),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
-              gradient: isMine
-                  ? LinearGradient(
-                      colors: [theme.colorScheme.primary, theme.colorScheme.tertiary],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    )
-                  : null,
-          color: isMine ? null : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+          gradient: isMine
+              ? LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.tertiary,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: isMine
+              ? null
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.7,
+                ),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(20),
             topRight: const Radius.circular(20),

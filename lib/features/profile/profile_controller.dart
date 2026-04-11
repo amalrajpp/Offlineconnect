@@ -87,6 +87,7 @@ class ProfileController extends GetxController {
       displayName: trimmedName,
       bio: bio?.trim().isEmpty == true ? null : bio?.trim(),
       photoUrl: photoUrl ?? profile.value?.photoUrl,
+      avatarId: avatarId,
     );
 
     // Save locally.

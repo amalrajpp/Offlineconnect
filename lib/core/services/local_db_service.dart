@@ -12,7 +12,8 @@ import '../models/user_profile.dart';
 /// - `connections`: connection records between offline identities.
 class LocalDbService extends GetxService {
   static const _dbName = 'offline_connect.db';
-  static const _dbVersion = 4; // v2: UNIQUE + index, v3: bio, v4: photo_url
+  static const _dbVersion =
+      5; // v2: UNIQUE + index, v3: bio, v4: photo_url, v5: avatar_id
 
   Database? _db;
 
@@ -41,6 +42,7 @@ class LocalDbService extends GetxService {
             display_name TEXT NOT NULL,
             bio TEXT,
             photo_url TEXT,
+            avatar_id INTEGER DEFAULT 0,
             last_seen TEXT,
             last_rssi INTEGER
           )
@@ -96,6 +98,12 @@ class LocalDbService extends GetxService {
         if (oldVersion < 4) {
           // Add photo_url column to known_users.
           await db.execute('ALTER TABLE known_users ADD COLUMN photo_url TEXT');
+        }
+        if (oldVersion < 5) {
+          // Add avatar_id column to known_users.
+          await db.execute(
+            'ALTER TABLE known_users ADD COLUMN avatar_id INTEGER DEFAULT 0',
+          );
         }
       },
     );
