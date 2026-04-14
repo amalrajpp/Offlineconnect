@@ -68,10 +68,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     final futures = <Future<void>>[];
     for (int i = 0; i < AppAssets.maxAvatars; i++) {
-      futures.add(precacheImage(
-        ResizeImage(AssetImage(AppAssets.getAvatarPath(i)), width: 144, height: 144),
-        context,
-      ));
+      futures.add(
+        precacheImage(
+          ResizeImage(
+            AssetImage(AppAssets.getAvatarPath(i)),
+            width: 144,
+            height: 144,
+          ),
+          context,
+        ),
+      );
     }
     await Future.wait(futures);
 
@@ -200,488 +206,506 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               ),
             )
           : SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'This is how nearby devices will discover you.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
                 ),
-                const SizedBox(height: 32),
-
-                _buildFlatCard(
-                  theme: theme,
+                child: Form(
+                  key: _formKey,
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // ── Photo picker ──
-                      GestureDetector(
-                        onTap: _pickPhoto,
-                        child: Obx(() {
-                          final uploading = controller.isUploadingPhoto.value;
-                          return Stack(
-                            alignment: Alignment.bottomRight,
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: theme.colorScheme.onSurface,
-                                    width: 3,
-                                  ),
-                                ),
-                                child: CircleAvatar(
-                                  radius: 56,
-                                  backgroundColor:
-                                      theme.colorScheme.surfaceContainerHighest,
-                                  backgroundImage: _photoUrl != null
-                                      ? CachedNetworkImageProvider(_photoUrl!)
-                                      : null,
-                                  child: _photoUrl == null && !uploading
-                                      ? Icon(
-                                          Icons.person,
-                                          size: 48,
-                                          color: theme
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                        )
-                                      : uploading
-                                      ? const CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        )
-                                      : null,
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: theme
-                                      .colorScheme
-                                      .primary, // Snapchat Yellow
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: theme.colorScheme.surface,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  size: 20,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 12),
                       Text(
-                        'Tap to add photo',
+                        'This is how nearby devices will discover you.',
+                        textAlign: TextAlign.center,
                         style: TextStyle(
                           color: theme.colorScheme.onSurfaceVariant,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      _buildFlatCard(
+                        theme: theme,
+                        child: Column(
+                          children: [
+                            // ── Photo picker ──
+                            GestureDetector(
+                              onTap: _pickPhoto,
+                              child: Obx(() {
+                                final uploading =
+                                    controller.isUploadingPhoto.value;
+                                return Stack(
+                                  alignment: Alignment.bottomRight,
+                                  children: [
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: theme.colorScheme.onSurface,
+                                          width: 3,
+                                        ),
+                                      ),
+                                      child: CircleAvatar(
+                                        radius: 56,
+                                        backgroundColor: theme
+                                            .colorScheme
+                                            .surfaceContainerHighest,
+                                        backgroundImage: _photoUrl != null
+                                            ? CachedNetworkImageProvider(
+                                                _photoUrl!,
+                                              )
+                                            : null,
+                                        child: _photoUrl == null && !uploading
+                                            ? Icon(
+                                                Icons.person,
+                                                size: 48,
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                              )
+                                            : uploading
+                                            ? const CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              )
+                                            : null,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: theme
+                                            .colorScheme
+                                            .primary, // Snapchat Yellow
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: theme.colorScheme.surface,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.camera_alt,
+                                        size: 20,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Tap to add photo',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+
+                            const SizedBox(height: 32),
+
+                            // ── Offline Avatar Picker ──
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Offline Radar Avatar',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurface,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              height: 90,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: AppAssets.maxAvatars,
+                                itemBuilder: (context, index) {
+                                  final isSelected = _avatarId == index;
+                                  return GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _avatarId = index),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 200,
+                                      ),
+                                      margin: const EdgeInsets.only(right: 16),
+                                      transform: Matrix4.diagonal3Values(
+                                        isSelected ? 1.0 : 0.9,
+                                        isSelected ? 1.0 : 0.9,
+                                        1.0,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? theme.colorScheme.primary
+                                              : Colors.transparent,
+                                          width: isSelected ? 4 : 0,
+                                        ),
+                                      ),
+                                      child: CircleAvatar(
+                                        radius: 36,
+                                        backgroundImage: ResizeImage(
+                                          AssetImage(
+                                            AppAssets.getAvatarPath(index),
+                                          ),
+                                          width: 144,
+                                          height: 144,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Bio Inputs ──
+                      _buildFlatCard(
+                        theme: theme,
+                        child: Column(
+                          children: [
+                            TextFormField(
+                              controller: _usernameController,
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLength: 10,
+                              decoration: _flatInputDecoration(
+                                'Offline Handle',
+                                '@NightOwl',
+                                Icons.alternate_email,
+                                theme,
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Required for offline discovery';
+                                }
+                                if (!RegExp(
+                                  r'^[a-zA-Z0-9_]+$',
+                                ).hasMatch(value)) {
+                                  return 'Only letters, numbers, and underscores';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _nameController,
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLength: 30,
+                              textCapitalization: TextCapitalization.words,
+                              decoration: _flatInputDecoration(
+                                'Display Name',
+                                'How should people know you?',
+                                Icons.badge_outlined,
+                                theme,
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Please enter a display name';
+                                }
+                                if (value.trim().length < 2) {
+                                  return 'Name must be at least 2 characters';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _bioController,
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLength: 100,
+                              maxLines: 2,
+                              textCapitalization: TextCapitalization.sentences,
+                              decoration: _flatInputDecoration(
+                                'Bio (optional)',
+                                'A short tagline about you',
+                                Icons.info_outline,
+                                theme,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Outfit Colors Inputs ──
+                      _buildFlatCard(
+                        theme: theme,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Outfit Colors',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<int>(
+                                    isExpanded: true,
+                                    dropdownColor: theme.colorScheme.surface,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    initialValue: _topWearColor,
+                                    decoration: _flatInputDecoration(
+                                      'Top Color',
+                                      '',
+                                      Icons.checkroom,
+                                      theme,
+                                    ),
+                                    items:
+                                        [
+                                              "None/Hide",
+                                              "Black",
+                                              "White",
+                                              "Gray",
+                                              "Red",
+                                              "Blue",
+                                              "Green",
+                                              "Yellow",
+                                              "Orange",
+                                              "Purple",
+                                              "Pink",
+                                              "Brown",
+                                              "Beige",
+                                              "Multicolor",
+                                              "Denim",
+                                              "Other",
+                                            ]
+                                            .asMap()
+                                            .entries
+                                            .map(
+                                              (e) => DropdownMenuItem(
+                                                value: e.key,
+                                                child: Text(
+                                                  e.value,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                    onChanged: (v) =>
+                                        setState(() => _topWearColor = v ?? 0),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: DropdownButtonFormField<int>(
+                                    isExpanded: true,
+                                    dropdownColor: theme.colorScheme.surface,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    initialValue: _bottomWearColor,
+                                    decoration: _flatInputDecoration(
+                                      'Bottom Color',
+                                      '',
+                                      Icons.dry_cleaning,
+                                      theme,
+                                    ),
+                                    items:
+                                        [
+                                              "None/Hide",
+                                              "Black",
+                                              "White",
+                                              "Gray",
+                                              "Red",
+                                              "Blue",
+                                              "Green",
+                                              "Yellow",
+                                              "Orange",
+                                              "Purple",
+                                              "Pink",
+                                              "Brown",
+                                              "Beige",
+                                              "Multicolor",
+                                              "Denim",
+                                              "Other",
+                                            ]
+                                            .asMap()
+                                            .entries
+                                            .map(
+                                              (e) => DropdownMenuItem(
+                                                value: e.key,
+                                                child: Text(
+                                                  e.value,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                    onChanged: (v) => setState(
+                                      () => _bottomWearColor = v ?? 0,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Vibe Inputs ──
+                      _buildFlatCard(
+                        theme: theme,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Your Vibe',
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<int>(
+                                    isExpanded: true,
+                                    dropdownColor: theme.colorScheme.surface,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    initialValue: _gender,
+                                    decoration: _flatInputDecoration(
+                                      'Gender',
+                                      '',
+                                      Icons.person_rounded,
+                                      theme,
+                                    ),
+                                    items: List.generate(
+                                      genderOptions.length,
+                                      (index) => DropdownMenuItem(
+                                        value: index,
+                                        child: Text(
+                                          getGenderName(index),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() {
+                                          _gender = v;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: DropdownButtonFormField<int>(
+                                    isExpanded: true,
+                                    dropdownColor: theme.colorScheme.surface,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    initialValue: _nativity,
+                                    decoration: _flatInputDecoration(
+                                      'Nativity',
+                                      '',
+                                      Icons.location_on_rounded,
+                                      theme,
+                                    ),
+                                    items: List.generate(
+                                      nativityOptions.length,
+                                      (index) => DropdownMenuItem(
+                                        value: index,
+                                        child: Text(
+                                          getNativityName(index),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ),
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() => _nativity = v);
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
 
                       const SizedBox(height: 32),
 
-                      // ── Offline Avatar Picker ──
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Offline Radar Avatar',
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurface,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 18,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+                      // ── Submit button ──
                       SizedBox(
-                        height: 90,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: AppAssets.maxAvatars,
-                          itemBuilder: (context, index) {
-                            final isSelected = _avatarId == index;
-                            return GestureDetector(
-                              onTap: () => setState(() => _avatarId = index),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                margin: const EdgeInsets.only(right: 16),
-                                transform: Matrix4.diagonal3Values(
-                                  isSelected ? 1.0 : 0.9,
-                                  isSelected ? 1.0 : 0.9,
-                                  1.0,
-                                ),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? theme.colorScheme.primary
-                                        : Colors.transparent,
-                                    width: isSelected ? 4 : 0,
+                        width: double.infinity,
+                        height: 64,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor:
+                                theme.colorScheme.primary, // Snapchat yellow!
+                            foregroundColor:
+                                Colors.black, // Dark text on yellow
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(32),
+                            ),
+                          ),
+                          onPressed: _saving ? null : _save,
+                          child: _saving
+                              ? const SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                    color: Colors.black,
+                                  ),
+                                )
+                              : const Text(
+                                  'Save & Update Radar',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
-                                child: CircleAvatar(
-                                  radius: 36,
-                                  backgroundImage: ResizeImage(
-                                    AssetImage(
-                                      AppAssets.getAvatarPath(index),
-                                    ),
-                                    width: 144,
-                                    height: 144,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
                         ),
                       ),
+                      const SizedBox(height: 32),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-
-                // ── Bio Inputs ──
-                _buildFlatCard(
-                  theme: theme,
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: _usernameController,
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLength: 10,
-                        decoration: _flatInputDecoration(
-                          'Offline Handle',
-                          '@NightOwl',
-                          Icons.alternate_email,
-                          theme,
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Required for offline discovery';
-                          }
-                          if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
-                            return 'Only letters, numbers, and underscores';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _nameController,
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLength: 30,
-                        textCapitalization: TextCapitalization.words,
-                        decoration: _flatInputDecoration(
-                          'Display Name',
-                          'How should people know you?',
-                          Icons.badge_outlined,
-                          theme,
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter a display name';
-                          }
-                          if (value.trim().length < 2) {
-                            return 'Name must be at least 2 characters';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _bioController,
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLength: 100,
-                        maxLines: 2,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: _flatInputDecoration(
-                          'Bio (optional)',
-                          'A short tagline about you',
-                          Icons.info_outline,
-                          theme,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // ── Outfit Colors Inputs ──
-                _buildFlatCard(
-                  theme: theme,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Outfit Colors',
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              isExpanded: true,
-                              dropdownColor: theme.colorScheme.surface,
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              initialValue: _topWearColor,
-                              decoration: _flatInputDecoration(
-                                'Top Color',
-                                '',
-                                Icons.checkroom,
-                                theme,
-                              ),
-                              items:
-                                  [
-                                        "None/Hide",
-                                        "Black",
-                                        "White",
-                                        "Gray",
-                                        "Red",
-                                        "Blue",
-                                        "Green",
-                                        "Yellow",
-                                        "Orange",
-                                        "Purple",
-                                        "Pink",
-                                        "Brown",
-                                        "Beige",
-                                        "Multicolor",
-                                        "Denim",
-                                        "Other",
-                                      ]
-                                      .asMap()
-                                      .entries
-                                      .map(
-                                        (e) => DropdownMenuItem(
-                                          value: e.key,
-                                          child: Text(
-                                            e.value,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                              onChanged: (v) =>
-                                  setState(() => _topWearColor = v ?? 0),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              isExpanded: true,
-                              dropdownColor: theme.colorScheme.surface,
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              initialValue: _bottomWearColor,
-                              decoration: _flatInputDecoration(
-                                'Bottom Color',
-                                '',
-                                Icons.dry_cleaning,
-                                theme,
-                              ),
-                              items:
-                                  [
-                                        "None/Hide",
-                                        "Black",
-                                        "White",
-                                        "Gray",
-                                        "Red",
-                                        "Blue",
-                                        "Green",
-                                        "Yellow",
-                                        "Orange",
-                                        "Purple",
-                                        "Pink",
-                                        "Brown",
-                                        "Beige",
-                                        "Multicolor",
-                                        "Denim",
-                                        "Other",
-                                      ]
-                                      .asMap()
-                                      .entries
-                                      .map(
-                                        (e) => DropdownMenuItem(
-                                          value: e.key,
-                                          child: Text(
-                                            e.value,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                              onChanged: (v) =>
-                                  setState(() => _bottomWearColor = v ?? 0),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // ── Vibe Inputs ──
-                _buildFlatCard(
-                  theme: theme,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Your Vibe',
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              isExpanded: true,
-                              dropdownColor: theme.colorScheme.surface,
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              initialValue: _gender,
-                              decoration: _flatInputDecoration(
-                                'Gender',
-                                '',
-                                Icons.person_rounded,
-                                theme,
-                              ),
-                              items: List.generate(
-                                genderOptions.length,
-                                (index) => DropdownMenuItem(
-                                  value: index,
-                                  child: Text(
-                                    getGenderName(index),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              onChanged: (v) {
-                                if (v != null) {
-                                  setState(() {
-                                    _gender = v;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              isExpanded: true,
-                              dropdownColor: theme.colorScheme.surface,
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              initialValue: _nativity,
-                              decoration: _flatInputDecoration(
-                                'Nativity',
-                                '',
-                                Icons.location_on_rounded,
-                                theme,
-                              ),
-                              items: List.generate(
-                                nativityOptions.length,
-                                (index) => DropdownMenuItem(
-                                  value: index,
-                                  child: Text(
-                                    getNativityName(index),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              onChanged: (v) {
-                                if (v != null) setState(() => _nativity = v);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 32),
-
-                // ── Submit button ──
-                SizedBox(
-                  width: double.infinity,
-                  height: 64,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor:
-                          theme.colorScheme.primary, // Snapchat yellow!
-                      foregroundColor: Colors.black, // Dark text on yellow
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(32),
-                      ),
-                    ),
-                    onPressed: _saving ? null : _save,
-                    child: _saving
-                        ? const SizedBox(
-                            width: 28,
-                            height: 28,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              color: Colors.black,
-                            ),
-                          )
-                        : const Text(
-                            'Save & Update Radar',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 }

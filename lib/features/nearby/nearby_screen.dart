@@ -22,6 +22,8 @@ class _NearbyScreenState extends State<NearbyScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _radarController;
 
+  late final AnimationController _pulseController;
+
   @override
   void initState() {
     super.initState();
@@ -30,11 +32,18 @@ class _NearbyScreenState extends State<NearbyScreen>
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat();
+
+    // Pulse animation for the center dot and blips
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     _radarController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -51,6 +60,12 @@ class _NearbyScreenState extends State<NearbyScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          // Developer Load Test button
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            tooltip: 'Run Load Test',
+            onPressed: () => controller.runDeveloperLoadTest(),
+          ),
           // Play / Pause toggle.
           Obx(() {
             final isScanning = controller.scanning.value;
@@ -119,21 +134,36 @@ class _NearbyScreenState extends State<NearbyScreen>
                 ),
 
                 // 2. Center User dot (Me)
-                Positioned(
-                  left: center.dx - 12,
-                  top: center.dy - 12,
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: theme.colorScheme.onSurface,
-                        width: 3,
+                AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, child) {
+                    final scale = 1.0 + (_pulseController.value * 0.15);
+                    return Positioned(
+                      left: center.dx - 12 * scale,
+                      top: center.dy - 12 * scale,
+                      child: Container(
+                        width: 24 * scale,
+                        height: 24 * scale,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: theme.colorScheme.onSurface,
+                            width: 3 * scale,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.4 * _pulseController.value,
+                              ),
+                              blurRadius: 10 * scale,
+                              spreadRadius: 4 * scale,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
 
                 // 3. Floating Blips (Other Users)
@@ -152,8 +182,8 @@ class _NearbyScreenState extends State<NearbyScreen>
                   final y = center.dy + d * math.sin(angleRads);
 
                   return Positioned(
-                    left: x - 24, // Assuming avatar is 48x48
-                    top: y - 24,
+                    left: x - 26, // Center avatar is 52x52
+                    top: y - 26,
                     child: GestureDetector(
                       onTap: () => _showPeerDetails(context, peer, controller),
                       child: _buildRadarBlip(peer, theme, controller),
@@ -210,7 +240,11 @@ class _NearbyScreenState extends State<NearbyScreen>
           child: CircleAvatar(
             radius: 26,
             backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            backgroundImage: AssetImage(AppAssets.getAvatarPath(peer.avatarId)),
+            backgroundImage: ResizeImage(
+              AssetImage(AppAssets.getAvatarPath(peer.avatarId)),
+              width: 104,
+              height: 104,
+            ),
           ),
         ),
         if (isThisPeerPending)
