@@ -242,23 +242,34 @@ class FirebaseSyncService extends GetxService {
     if (firestore == null || !isSignedIn) return;
 
     try {
-      final batch = firestore.batch();
       final col = firestore
           .collection('users')
           .doc(myOfflineId)
           .collection('connections');
 
-      for (final conn in connections) {
-        if (conn.status != ConnectionStatus.accepted) continue;
-        final docId = conn.otherOfflineId;
-        batch.set(col.doc(docId), {
-          'otherOfflineId': conn.otherOfflineId,
-          'status': conn.status.index,
-          'firstMetAt': Timestamp.fromDate(conn.firstMetAt),
-        }, SetOptions(merge: true));
-      }
+      final accepted = connections
+          .where((c) => c.status == ConnectionStatus.accepted)
+          .toList();
 
-      await batch.commit();
+      if (accepted.isEmpty) return;
+
+      // Firestore restricts batches to 500 operations. We chunk the sync to prevent
+      // load-test and extreme density crashes.
+      for (var i = 0; i < accepted.length; i += 400) {
+        final chunk = accepted.skip(i).take(400);
+        final batch = firestore.batch();
+
+        for (final conn in chunk) {
+          final docId = conn.otherOfflineId;
+          batch.set(col.doc(docId), {
+            'otherOfflineId': conn.otherOfflineId,
+            'status': conn.status.index,
+            'firstMetAt': Timestamp.fromDate(conn.firstMetAt),
+          }, SetOptions(merge: true));
+        }
+
+        await batch.commit();
+      }
     } catch (e) {
       Get.log('FirebaseSyncService: syncConnections failed – $e');
     }

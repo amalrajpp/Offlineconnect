@@ -17,6 +17,23 @@ class ConnectionsController extends GetxController {
   /// Tracks in-flight request actions to prevent double taps.
   final RxSet<int> _requestActionBusyIds = <int>{}.obs;
 
+  /// The number of connections initiated today.
+  final RxInt connectionsMadeToday = 0.obs;
+
+  /// Daily limit for new connections.
+  int get maxConnectionsPerDay => 10;
+
+  /// Formatted time remaining until connection limit resets.
+  String get formattedResetTime {
+    final now = DateTime.now();
+    final tomorrow = DateTime(now.year, now.month, now.day + 1);
+    final diff = tomorrow.difference(now);
+    final h = diff.inHours;
+    final m = diff.inMinutes % 60;
+    if (h > 0) return '${h}h ${m}m';
+    return '${m}m';
+  }
+
   bool isRequestActionBusy(int? connectionId) {
     if (connectionId == null) return false;
     return _requestActionBusyIds.contains(connectionId);
@@ -68,6 +85,20 @@ class ConnectionsController extends GetxController {
   Future<void> loadConnections() async {
     try {
       final all = await _db.getConnections();
+
+      // Calculate daily connections initiated
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      int countToday = 0;
+      for (final conn in all) {
+        if (conn.firstMetAt.isAfter(startOfDay) &&
+            (conn.status == ConnectionStatus.pendingOutgoing ||
+                conn.status == ConnectionStatus.accepted)) {
+          countToday++;
+        }
+      }
+      connectionsMadeToday.value = countToday;
+
       final filtered = await _hidePeersAlreadyInChats(all);
       connections.assignAll(filtered);
     } catch (e) {

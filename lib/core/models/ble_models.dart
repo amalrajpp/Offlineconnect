@@ -28,8 +28,8 @@ class DiscoveredPeer {
   final int avatarId;
   final int topWearColor;
   final int bottomWearColor;
-  final int fieldId;
-  final int subfieldId;
+  final int gender;
+  final int nativity;
 
   /// The intent encoded in the advertisement payload.
   final BleIntent intent;
@@ -48,8 +48,8 @@ class DiscoveredPeer {
     this.avatarId = 0,
     this.topWearColor = 0,
     this.bottomWearColor = 0,
-    this.fieldId = 0,
-    this.subfieldId = 0,
+    this.gender = 0,
+    this.nativity = 0,
     required this.intent,
     required this.rssi,
     required this.lastSeen,
@@ -65,8 +65,8 @@ class DiscoveredPeer {
     int? avatarId,
     int? topWearColor,
     int? bottomWearColor,
-    int? fieldId,
-    int? subfieldId,
+    int? gender,
+    int? nativity,
   }) {
     return DiscoveredPeer(
       deviceId: deviceId,
@@ -76,8 +76,8 @@ class DiscoveredPeer {
       avatarId: avatarId ?? this.avatarId,
       topWearColor: topWearColor ?? this.topWearColor,
       bottomWearColor: bottomWearColor ?? this.bottomWearColor,
-      fieldId: fieldId ?? this.fieldId,
-      subfieldId: subfieldId ?? this.subfieldId,
+      gender: gender ?? this.gender,
+      nativity: nativity ?? this.nativity,
       intent: intent ?? this.intent,
       rssi: rssi ?? this.rssi,
       lastSeen: lastSeen ?? this.lastSeen,

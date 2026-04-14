@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 
 import '../../core/models/ble_models.dart';
 import '../../core/models/connection.dart';
-import '../../core/constants/interests_map.dart';
+import '../../core/constants/bio_constants.dart';
 import '../../core/constants/assets.dart';
 import '../chat/chat_screen.dart';
 import 'nearby_controller.dart';
@@ -410,10 +410,10 @@ class _NearbyScreenState extends State<NearbyScreen>
       desc += '. ';
     }
 
-    final category = getFieldName(peer.fieldId);
-    final subCategory = getSubfieldName(peer.fieldId, peer.subfieldId);
+    final category = getGenderName(peer.gender);
+    final subCategory = getNativityName(peer.nativity);
 
-    return '$desc Currently into: $category -> $subCategory'.trim();
+    return '$desc Gender: $category -> Nativity: $subCategory'.trim();
   }
 }
 

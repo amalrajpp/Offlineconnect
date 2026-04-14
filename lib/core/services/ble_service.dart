@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -331,8 +332,8 @@ class BleService extends GetxService {
         ((identity.topWearColor & 0x0F) << 4) |
         (identity.bottomWearColor & 0x0F);
 
-    // Byte 16 - Bio Bitfield (Field | Subfield)
-    data[16] = ((identity.fieldId & 0x0F) << 4) | (identity.subfieldId & 0x0F);
+    // Byte 16 - Bio Bitfield (Gender | Nativity)
+    data[16] = ((identity.gender & 0x07) << 5) | (identity.nativity & 0x1F);
 
     // Bytes 17-26 – sender username
     final nameBytes = utf8.encode(identity.username);
@@ -350,8 +351,7 @@ class BleService extends GetxService {
       iosData[4] =
           ((identity.topWearColor & 0x0F) << 4) |
           (identity.bottomWearColor & 0x0F);
-      iosData[5] =
-          ((identity.fieldId & 0x0F) << 4) | (identity.subfieldId & 0x0F);
+      iosData[5] = ((identity.gender & 0x07) << 5) | (identity.nativity & 0x1F);
       for (var i = 0; i < 5; i++) {
         iosData[6 + i] = i < myBytes.length ? myBytes[i] : 0;
       }
@@ -378,7 +378,7 @@ class BleService extends GetxService {
     // what the iOS advertisement actually looks like on Android.
     if (Platform.isAndroid) {
       final id = result.device.remoteId.str;
-      final name = result.advertisementData.localName;
+      final name = result.advertisementData.advName;
       final svcs = result.advertisementData.serviceUuids;
       final mfg = result.advertisementData.manufacturerData.keys.toList();
       final rssi = result.rssi;
@@ -432,7 +432,7 @@ class BleService extends GetxService {
     // Minimum viable payload: 16 bytes (iOS UUID) or 27 bytes (Android full).
     if (raw == null) return null;
     if (raw.length < 16) {
-      print('BLE_DEBUG: Dropping because too short: ${raw.length}');
+      debugPrint('BLE_DEBUG: Dropping because too short: ${raw.length}');
       return null;
     }
 
@@ -467,26 +467,26 @@ class BleService extends GetxService {
       final senderHashBytes = raw.sublist(6, 11).toList()..add(0);
       myHash = _bytesToHex(senderHashBytes);
       targetBytes = raw.sublist(11, 16).toList()..add(0);
-      print(
+      debugPrint(
         'BLE_DEBUG: iOS UUID successfully decoded! myHash=$myHash, target=${_bytesToHex(targetBytes)}',
       );
     } else {
-      print(
+      debugPrint(
         'BLE_DEBUG: Dropping because unknown format! length=${raw.length}, byte0=${raw[0]}, byte1=${raw[1]}',
       );
       return null;
     }
 
     if (intentIndex >= BleIntent.values.length) {
-      print('BLE_DEBUG: Dropping because intent invalid: $intentIndex');
+      debugPrint('BLE_DEBUG: Dropping because intent invalid: $intentIndex');
       return null;
     }
     final intent = BleIntent.values[intentIndex];
     final hasTarget = targetBytes.any((b) => b != 0);
     final targetHash = hasTarget ? _bytesToHex(targetBytes) : null;
 
-    final fieldId = (bioBits >> 4) & 0x0F;
-    final subfieldId = bioBits & 0x0F;
+    final gender = (bioBits >> 5) & 0x07;
+    final nativity = bioBits & 0x1F;
 
     String? offlineUsername;
     if (raw.length >= 27) {
@@ -505,8 +505,8 @@ class BleService extends GetxService {
       avatarId: avatarId,
       topWearColor: topWearColor,
       bottomWearColor: bottomWearColor,
-      fieldId: fieldId,
-      subfieldId: subfieldId,
+      gender: gender,
+      nativity: nativity,
       intent: intent,
       rssi: result.rssi,
       lastSeen: DateTime.now(),

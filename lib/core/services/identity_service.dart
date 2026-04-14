@@ -13,12 +13,12 @@ class IdentityService extends GetxService {
   static const _keyId = 'offline_user_id';
   static const _keyCreatedAt = 'offline_user_created_at';
   static const _keyUsername = 'offline_user_username';
-  
+
   static const _keyAvatar = 'offline_user_avatar';
   static const _keyTopWearColor = 'offline_user_top_wear';
   static const _keyBottomWearColor = 'offline_user_bottom_wear';
-  static const _keyField = 'offline_user_field';
-  static const _keySubfield = 'offline_user_subfield';
+  static const _keyGender = 'offline_user_gender';
+  static const _keyNativity = 'offline_user_nativity';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -28,8 +28,10 @@ class IdentityService extends GetxService {
   /// called yet.
   OfflineIdentity get identity {
     if (_identity == null) {
-      throw StateError('IdentityService: identity not loaded yet. '
-          'Call loadOrCreateIdentity() first.');
+      throw StateError(
+        'IdentityService: identity not loaded yet. '
+        'Call loadOrCreateIdentity() first.',
+      );
     }
     return _identity!;
   }
@@ -42,12 +44,21 @@ class IdentityService extends GetxService {
       if (existingId != null) {
         final createdAtStr = await _storage.read(key: _keyCreatedAt);
         final un = await _storage.read(key: _keyUsername) ?? 'User';
-        
-        final av = int.tryParse(await _storage.read(key: _keyAvatar) ?? '0') ?? 0;
-        final topColor = int.tryParse(await _storage.read(key: _keyTopWearColor) ?? '0') ?? 0;
-        final bottomColor = int.tryParse(await _storage.read(key: _keyBottomWearColor) ?? '0') ?? 0;
-        final fid = int.tryParse(await _storage.read(key: _keyField) ?? '0') ?? 0;
-        final sfid = int.tryParse(await _storage.read(key: _keySubfield) ?? '0') ?? 0;
+
+        final av =
+            int.tryParse(await _storage.read(key: _keyAvatar) ?? '0') ?? 0;
+        final topColor =
+            int.tryParse(await _storage.read(key: _keyTopWearColor) ?? '0') ??
+            0;
+        final bottomColor =
+            int.tryParse(
+              await _storage.read(key: _keyBottomWearColor) ?? '0',
+            ) ??
+            0;
+        final gId =
+            int.tryParse(await _storage.read(key: _keyGender) ?? '0') ?? 0;
+        final nId =
+            int.tryParse(await _storage.read(key: _keyNativity) ?? '0') ?? 0;
 
         _identity = OfflineIdentity(
           offlineId: existingId,
@@ -55,8 +66,8 @@ class IdentityService extends GetxService {
           avatarId: av,
           topWearColor: topColor,
           bottomWearColor: bottomColor,
-          fieldId: fid,
-          subfieldId: sfid,
+          gender: gId,
+          nativity: nId,
           createdAt: createdAtStr != null
               ? DateTime.parse(createdAtStr)
               : DateTime.now(),
@@ -67,9 +78,11 @@ class IdentityService extends GetxService {
       // Generate a new 16-byte random hex string (32 characters).
       final random = Random.secure();
       final bytes = List<int>.generate(16, (_) => random.nextInt(256));
-      final hexId =
-          bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-      final fallbackUn = 'User${random.nextInt(9999).toString().padLeft(4, '0')}';
+      final hexId = bytes
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join();
+      final fallbackUn =
+          'User${random.nextInt(9999).toString().padLeft(4, '0')}';
 
       final now = DateTime.now();
       await _storage.write(key: _keyId, value: hexId);
@@ -78,17 +91,17 @@ class IdentityService extends GetxService {
       await _storage.write(key: _keyAvatar, value: '0');
       await _storage.write(key: _keyTopWearColor, value: '0');
       await _storage.write(key: _keyBottomWearColor, value: '0');
-      await _storage.write(key: _keyField, value: '0');
-      await _storage.write(key: _keySubfield, value: '0');
+      await _storage.write(key: _keyGender, value: '0');
+      await _storage.write(key: _keyNativity, value: '0');
 
       _identity = OfflineIdentity(
-        offlineId: hexId, 
-        username: fallbackUn, 
+        offlineId: hexId,
+        username: fallbackUn,
         avatarId: 0,
         topWearColor: 0,
         bottomWearColor: 0,
-        fieldId: 0,
-        subfieldId: 0,
+        gender: 0,
+        nativity: 0,
         createdAt: now,
       );
       return _identity!;
@@ -98,7 +111,10 @@ class IdentityService extends GetxService {
   }
 
   Future<void> setUsername(String newUsername) async {
-    final clean = newUsername.trim().substring(0, newUsername.trim().length > 10 ? 10 : newUsername.trim().length);
+    final clean = newUsername.trim().substring(
+      0,
+      newUsername.trim().length > 10 ? 10 : newUsername.trim().length,
+    );
     await _storage.write(key: _keyUsername, value: clean);
     _identity = _identity?.copyWith(username: clean);
   }
@@ -107,21 +123,24 @@ class IdentityService extends GetxService {
     required int avatarId,
     required int topWearColor,
     required int bottomWearColor,
-    required int fieldId,
-    required int subfieldId,
+    required int gender,
+    required int nativity,
   }) async {
     await _storage.write(key: _keyAvatar, value: avatarId.toString());
     await _storage.write(key: _keyTopWearColor, value: topWearColor.toString());
-    await _storage.write(key: _keyBottomWearColor, value: bottomWearColor.toString());
-    await _storage.write(key: _keyField, value: fieldId.toString());
-    await _storage.write(key: _keySubfield, value: subfieldId.toString());
+    await _storage.write(
+      key: _keyBottomWearColor,
+      value: bottomWearColor.toString(),
+    );
+    await _storage.write(key: _keyGender, value: gender.toString());
+    await _storage.write(key: _keyNativity, value: nativity.toString());
 
     _identity = _identity?.copyWith(
       avatarId: avatarId,
       topWearColor: topWearColor,
       bottomWearColor: bottomWearColor,
-      fieldId: fieldId,
-      subfieldId: subfieldId,
+      gender: gender,
+      nativity: nativity,
     );
   }
 }

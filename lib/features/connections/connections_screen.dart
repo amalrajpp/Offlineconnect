@@ -5,8 +5,10 @@ import 'package:get/get.dart';
 import '../../core/constants/assets.dart';
 import '../../core/models/connection.dart';
 import '../../core/services/firebase_sync_service.dart';
+import '../../core/services/local_db_service.dart';
 import '../chat/chat_screen.dart';
 import 'connections_controller.dart';
+import '../../core/services/identity_service.dart';
 
 /// Displays the list of accepted (and pending) connections from the local DB.
 ///
@@ -27,6 +29,48 @@ class ConnectionsScreen extends StatelessWidget {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: const Icon(Icons.bug_report_outlined),
+            tooltip: 'Run Load Test',
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Developer Stress Test'),
+                  content: const Text(
+                    'Inject 1,000 mock offline users and 500 connections to test scrolling, memory, and database scaling?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Inject Load'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm != true) return;
+              Get.snackbar(
+                'Load Test',
+                'Injecting mock data... wait a moment.',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+              final identity = Get.find<IdentityService>().identity;
+              await Get.find<LocalDbService>().runDeveloperLoadTest(
+                identity.offlineId,
+              );
+              controller.loadConnections();
+              Get.snackbar(
+                'Success',
+                'Injected 500 Connections and 1000 Users.',
+                snackPosition: SnackPosition.BOTTOM,
+                duration: const Duration(seconds: 4),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
             onPressed: () => controller.loadConnections(),
@@ -34,26 +78,91 @@ class ConnectionsScreen extends StatelessWidget {
         ],
       ),
       body: Obx(() {
-        if (controller.connections.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+        final maxLimit = controller.maxConnectionsPerDay;
+        final used = controller.connectionsMadeToday.value;
+        final remaining = (maxLimit - used).clamp(0, maxLimit);
+        final resetsIn = controller.formattedResetTime;
+
+        final limitBanner = Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: remaining > 0
+                  ? theme.colorScheme.primaryContainer
+                  : theme.colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: remaining > 0
+                    ? theme.colorScheme.primary.withValues(alpha: 0.3)
+                    : theme.colorScheme.error.withValues(alpha: 0.5),
+              ),
+            ),
+            child: Row(
               children: [
                 Icon(
-                  Icons.radar_outlined,
-                  size: 80,
-                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                  remaining > 0
+                      ? Icons.battery_charging_full
+                      : Icons.battery_alert,
+                  color: remaining > 0
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.error,
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  'Your radar is completely quiet.\nSwitch to "Nearby" to start scanning.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Connections Today: $used / $maxLimit',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      Text(
+                        remaining > 0
+                            ? '$remaining connections remaining'
+                            : 'Limit reached. Resets in $resetsIn',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
+          ),
+        );
+
+        if (controller.connections.isEmpty) {
+          return Column(
+            children: [
+              limitBanner,
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.radar_outlined,
+                        size: 80,
+                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Your radar is completely quiet.\nSwitch to "Nearby" to start scanning.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           );
         }
 
@@ -70,21 +179,72 @@ class ConnectionsScreen extends StatelessWidget {
             .where((c) => c.status == ConnectionStatus.blocked)
             .toList();
 
-        return ListView(
-          padding: const EdgeInsets.only(top: 8, bottom: 20),
-          children: [
-            _buildSectionHeader('Connected', connected.length),
-            ...connected.map((c) => _buildConnectionTile(context, c, true)),
-            _buildSectionHeader('Sent Requests', sentRequests.length),
-            ...sentRequests.map((c) => _buildConnectionTile(context, c, false)),
-            _buildSectionHeader('Received Requests', receivedRequests.length),
-            ...receivedRequests.map(
-              (c) => _buildConnectionTile(context, c, false),
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: limitBanner,
+              ),
             ),
-            if (blocked.isNotEmpty) ...[
-              _buildSectionHeader('Blocked', blocked.length),
-              ...blocked.map((c) => _buildConnectionTile(context, c, false)),
+            if (connected.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: _buildSectionHeader('Connected', connected.length),
+              ),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) =>
+                      _buildConnectionTile(context, connected[index], true),
+                  childCount: connected.length,
+                ),
+              ),
             ],
+            if (sentRequests.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: _buildSectionHeader(
+                  'Sent Requests',
+                  sentRequests.length,
+                ),
+              ),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) =>
+                      _buildConnectionTile(context, sentRequests[index], false),
+                  childCount: sentRequests.length,
+                ),
+              ),
+            ],
+            if (receivedRequests.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: _buildSectionHeader(
+                  'Received Requests',
+                  receivedRequests.length,
+                ),
+              ),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _buildConnectionTile(
+                    context,
+                    receivedRequests[index],
+                    false,
+                  ),
+                  childCount: receivedRequests.length,
+                ),
+              ),
+            ],
+            if (blocked.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: _buildSectionHeader('Blocked', blocked.length),
+              ),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) =>
+                      _buildConnectionTile(context, blocked[index], false),
+                  childCount: blocked.length,
+                ),
+              ),
+            ],
+            const SliverPadding(padding: EdgeInsets.only(bottom: 20)),
           ],
         );
       }),
@@ -146,10 +306,7 @@ class ConnectionsScreen extends StatelessWidget {
         ],
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 4,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         leading: isAccepted
             ? Container(
@@ -336,26 +493,40 @@ class ConnectedAvatar extends StatelessWidget {
     required this.shortId,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final firebase = Get.find<FirebaseSyncService>();
+  Future<Map<String, dynamic>> _resolveProfile() async {
+    final localDb = Get.find<LocalDbService>();
+    final localProfile = await localDb.getKnownUser(offlineId);
 
-    if (!firebase.isFirebaseAvailable) {
-      return CircleAvatar(
-        backgroundColor: Colors.green,
-        child: Text(
-          shortId.substring(0, 2).toUpperCase(),
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-        ),
-      );
+    String? photoUrl = localProfile?.photoUrl;
+    int avatarId = localProfile?.avatarId ?? 0;
+    bool hasProfile = localProfile != null;
+
+    final firebase = Get.find<FirebaseSyncService>();
+    if (firebase.isFirebaseAvailable) {
+      final cloudProfile = await firebase.fetchProfile(offlineId);
+      if (cloudProfile != null) {
+        hasProfile = true;
+        photoUrl = cloudProfile.photoUrl ?? photoUrl;
+        avatarId = cloudProfile.avatarId;
+      }
     }
 
-    return FutureBuilder(
-      future: firebase.fetchProfile(offlineId),
+    return {
+      'hasProfile': hasProfile,
+      'photoUrl': photoUrl,
+      'avatarId': avatarId,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _resolveProfile(),
       builder: (context, snapshot) {
-        final profile = snapshot.data;
-        final photoUrl = profile?.photoUrl;
-        final avatarId = profile?.avatarId ?? 0;
+        final data = snapshot.data;
+        final hasProfile = data?['hasProfile'] == true;
+        final photoUrl = data?['photoUrl'] as String?;
+        final avatarId = (data?['avatarId'] as int?) ?? 0;
 
         if (photoUrl != null) {
           return CircleAvatar(
@@ -365,10 +536,14 @@ class ConnectedAvatar extends StatelessWidget {
 
         return CircleAvatar(
           backgroundColor: Colors.green,
-          backgroundImage: profile != null
-              ? AssetImage(AppAssets.getAvatarPath(avatarId))
+          backgroundImage: hasProfile
+              ? ResizeImage(
+                  AssetImage(AppAssets.getAvatarPath(avatarId)),
+                  width: 96,
+                  height: 96,
+                )
               : null,
-          child: profile == null
+          child: !hasProfile
               ? Text(
                   shortId.substring(0, 2).toUpperCase(),
                   style: const TextStyle(
@@ -384,7 +559,7 @@ class ConnectedAvatar extends StatelessWidget {
   }
 }
 
-/// Fetches and displays the connected user's display name from Firestore.
+/// Fetches and displays the connected user's display name from local DB or Firestore.
 class ConnectedName extends StatelessWidget {
   final String offlineId;
   final String fallback;
@@ -395,19 +570,33 @@ class ConnectedName extends StatelessWidget {
     required this.fallback,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final firebase = Get.find<FirebaseSyncService>();
-
-    if (!firebase.isFirebaseAvailable) {
-      return Text(fallback);
+  Future<String?> _resolveName() async {
+    final localDb = Get.find<LocalDbService>();
+    final localProfile = await localDb.getKnownUser(offlineId);
+    if (localProfile != null && localProfile.displayName.isNotEmpty) {
+      return localProfile.displayName;
     }
 
-    return FutureBuilder(
-      future: firebase.fetchProfile(offlineId),
+    final firebase = Get.find<FirebaseSyncService>();
+    if (firebase.isFirebaseAvailable) {
+      final cloudProfile = await firebase.fetchProfile(offlineId);
+      if (cloudProfile != null && cloudProfile.displayName.isNotEmpty) {
+        return cloudProfile.displayName;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: _resolveName(),
       builder: (context, snapshot) {
-        final name = snapshot.data?.displayName;
-        return Text(name ?? fallback);
+        final name = snapshot.data;
+        return Text(
+          name ?? fallback,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        );
       },
     );
   }

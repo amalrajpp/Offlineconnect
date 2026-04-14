@@ -321,6 +321,18 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
   /// After 10 seconds the broadcast reverts to plain presence.
   Future<void> sendConnectionRequest(String targetHash) async {
     try {
+      final connCtrl = Get.find<ConnectionsController>();
+      if (connCtrl.connectionsMadeToday.value >=
+          connCtrl.maxConnectionsPerDay) {
+        Get.snackbar(
+          'Daily Connection Limit Reached',
+          'You can only connect with ${connCtrl.maxConnectionsPerDay} people a day. Wait for the reset!',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+
       // Fix #1 — Prevent overwriting an in-flight request.
       if (pendingRequestTarget.value != null) {
         Get.snackbar(
@@ -416,35 +428,166 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // ── Buffer processor (runs every 2 s) ──────────────────────────────────
+  /// Sends a connection accept request directed at [targetHash].
+  ///
+  /// This is used to manually trigger an accept response to a peer we
+  /// previously requested to connect with.
+  Future<void> sendAcceptRequest(String targetHash) async {
+    try {
+      // Fix #1 — Prevent overwriting an in-flight request.
+      if (pendingRequestTarget.value != null) {
+        Get.snackbar(
+          'Request In Progress',
+          'Wait for your current request to complete before sending another.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
+        );
+        return;
+      }
+
+      pendingRequestTarget.value = targetHash;
+
+      // Broadcast an accept response.
+      await _ble.broadcastState(
+        _identity.identity,
+        BleIntent.acceptConnection,
+        targetHash: targetHash,
+      );
+
+      // Persist the connection as accepted.
+      final existing = await _db.findConnectionByOther(targetHash);
+      if (existing != null) {
+        await _db.updateConnectionStatus(
+          existing.id!,
+          ConnectionStatus.accepted,
+        );
+      } else {
+        await _db.insertConnection(
+          Connection(
+            myOfflineId: _identity.identity.offlineId,
+            otherOfflineId: targetHash,
+            status: ConnectionStatus.accepted,
+            firstMetAt: DateTime.now(),
+          ),
+        );
+      }
+
+      // Save as known user.
+      await _db.upsertKnownUser(
+        UserProfile(
+          offlineId: targetHash,
+          displayName: 'User ${displayPeerId(targetHash)}',
+        ),
+      );
+
+      Get.snackbar(
+        'Connection Accepted',
+        'You are now connected with ${displayPeerId(targetHash)}.',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 2),
+      );
+
+      // Revert to presence after 10 seconds.
+      _revertToPresenceTimer?.cancel();
+      _revertToPresenceTimer = Timer(const Duration(seconds: 10), () {
+        pendingRequestTarget.value = null;
+        if (scanning.value) {
+          _ble.broadcastState(_identity.identity, BleIntent.presence);
+        }
+      });
+    } catch (e) {
+      pendingRequestTarget.value = null;
+      Get.log('NearbyController: sendAcceptRequest failed – $e');
+    }
+  }
 
   bool _shouldRebuildUi(
-    List<DiscoveredPeer> oldList,
-    List<DiscoveredPeer> newList,
+    List<DiscoveredPeer> current,
+    List<DiscoveredPeer> next,
   ) {
     Get.log(
-      'NEARBY_TRACE: _shouldRebuildUi check (old: ${oldList.length}, new: ${newList.length})',
+      'NEARBY_TRACE: _shouldRebuildUi check (old: ${current.length}, new: ${next.length})',
     );
-    if (oldList.length != newList.length) {
+    if (current.length != next.length) {
       Get.log('NEARBY_TRACE: YES! Length changed');
       return true;
     }
-    for (var i = 0; i < oldList.length; i++) {
-      if (oldList[i].myHash != newList[i].myHash) {
+    for (var i = 0; i < current.length; i++) {
+      if (current[i].myHash != next[i].myHash) {
         Get.log('NEARBY_TRACE: YES! Hash mismatch at $i');
         return true;
       }
-      if (oldList[i].intent != newList[i].intent) {
+      if (current[i].intent != next[i].intent) {
         Get.log('NEARBY_TRACE: YES! Intent mismatch at $i');
         return true;
       }
       // Rebuild if RSSI changes by more than 5 dBm
-      if ((oldList[i].rssi - newList[i].rssi).abs() > 5) {
+      if ((current[i].rssi - next[i].rssi).abs() > 5) {
         Get.log('NEARBY_TRACE: YES! Rssi jitter > 5');
         return true;
       }
     }
     return false;
+  }
+
+  Timer? _loadTestTimer;
+
+  /// Bulk injects fake BLE peers directly into the nearby buffer to stress-test
+  /// the 2-second processing loop, sorting, and UI rendering capacity.
+  void runDeveloperLoadTest() {
+    Get.log(
+      'NEARBY_TRACE: Starting Load Test - Injecting initial 300 BLE peers',
+    );
+    _loadTestTimer?.cancel();
+    _buffer.clear(); // Ensure we start fresh
+
+    int currentCount = 0;
+
+    void addPeers(int count) {
+      final now = DateTime.now();
+      for (int i = 0; i < count; i++) {
+        if (currentCount >= 500) break;
+        final mockHash = currentCount.toRadixString(16).padLeft(10, '0');
+        final peerKey = _canonicalHash(mockHash);
+        _buffer[peerKey] = DiscoveredPeer(
+          deviceId: 'simulated_device_$currentCount',
+          myHash: mockHash,
+          offlineUsername: 'Stress Bot $currentCount',
+          avatarId: currentCount % 10,
+          topWearColor: currentCount % 15,
+          bottomWearColor: (currentCount + 5) % 15,
+          gender: 0,
+          nativity: 0,
+          intent: BleIntent.presence,
+          rssi: -40 - (currentCount % 50),
+          lastSeen: now,
+        );
+        currentCount++;
+      }
+    }
+
+    addPeers(300);
+
+    // Automatically start scanning to activate the radar animation and buffer processing loop
+    startScanningAndBroadcasting();
+
+    // Force immediate UI processing so the bots show up instantly
+    _processBuffer();
+
+    // Set timer to add 10 new users every 3 seconds up to maximum 500
+    Get.log(
+      'NEARBY_TRACE: Progressively adding 10 users every 3 seconds up to 500...',
+    );
+    _loadTestTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (currentCount >= 500) {
+        Get.log('NEARBY_TRACE: Finished injecting 500 BLE peers.');
+        timer.cancel();
+        return;
+      }
+      Get.log('NEARBY_TRACE: Injecting 10 new mock users...');
+      addPeers(10);
+      _processBuffer(); // Process immediately to trigger UI update
+    });
   }
 
   Future<void> _processBuffer() async {
@@ -459,7 +602,8 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     final sorted = _buffer.values.toList()
       ..sort((a, b) => b.rssi.compareTo(a.rssi));
 
-    final displayList = sorted.take(100).toList();
+    // For load testing visibility, we expand the take limit if crowd exceeds 100
+    final displayList = sorted.take(500).toList();
     Get.log(
       'NEARBY_TRACE: Processing buffer loop... displayList has ${displayList.length} items',
     );
@@ -610,7 +754,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
             peer.offlineUsername != null && peer.offlineUsername!.isNotEmpty
             ? '@${peer.offlineUsername}'
             : 'User ${displayPeerId(peer.myHash)}',
-          avatarId: peer.avatarId,
+        avatarId: peer.avatarId,
       ),
       rssi: peer.rssi,
     );
@@ -750,6 +894,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     _batchTimer?.cancel();
     _revertToPresenceTimer?.cancel();
     _acceptBroadcastTimer?.cancel();
+    _loadTestTimer?.cancel();
     _peerSub?.cancel();
     super.onClose();
   }

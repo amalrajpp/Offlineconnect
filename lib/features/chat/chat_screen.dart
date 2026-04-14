@@ -93,7 +93,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 backgroundColor: theme.colorScheme.primaryContainer,
                 backgroundImage: photoUrl != null
                     ? CachedNetworkImageProvider(photoUrl)
-                    : AssetImage(AppAssets.getAvatarPath(avatarId))
+                    : ResizeImage(
+                            AssetImage(AppAssets.getAvatarPath(avatarId)),
+                            width: 144,
+                            height: 144,
+                          )
                           as ImageProvider,
               ),
               const SizedBox(width: 12),
@@ -234,7 +238,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.3,
+                          ),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -288,7 +294,9 @@ class _MessageBubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: isMine
               ? theme.colorScheme.primary
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.6,
+                ),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(20),
             topRight: const Radius.circular(20),

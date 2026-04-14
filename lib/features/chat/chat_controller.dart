@@ -7,6 +7,7 @@ import '../../core/models/message.dart';
 import '../../core/models/user_profile.dart';
 import '../../core/services/firebase_sync_service.dart';
 import '../../core/services/identity_service.dart';
+import '../../core/services/local_db_service.dart';
 
 /// Manages a single chat conversation with real-time Firestore updates.
 ///
@@ -124,9 +125,18 @@ class ChatController extends GetxController {
       // Ensure conversation document exists.
       await _firebase.ensureConversation(_myId, otherOfflineId);
 
-      // Fetch the other user's profile.
+      // Fetch the other user's profile from local database first for fast display.
+      final localDb = Get.find<LocalDbService>();
+      final localProfile = await localDb.getKnownUser(otherOfflineId);
+      if (localProfile != null) {
+        otherProfile.value = localProfile;
+      }
+
+      // Fetch the other user's profile from Firestore to get overrides/photos.
       final profile = await _firebase.fetchProfile(otherOfflineId);
-      otherProfile.value = profile;
+      if (profile != null) {
+        otherProfile.value = profile;
+      }
 
       final allCandidates = <String>{
         ..._conversationCandidates,

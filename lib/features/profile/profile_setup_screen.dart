@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 
 import 'profile_controller.dart';
 import '../../core/services/identity_service.dart';
-import '../../core/constants/interests_map.dart';
+import '../../core/constants/bio_constants.dart';
 import '../../core/constants/assets.dart';
 
 /// One-time profile setup screen shown on first launch.
@@ -24,36 +24,60 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _nameController = TextEditingController();
   final _bioController = TextEditingController();
   bool _saving = false;
+  bool _isLoading = true;
   String? _photoUrl;
 
   int _avatarId = 0;
   int _topWearColor = 0;
   int _bottomWearColor = 0;
-  int _fieldId = 0;
-  int _subfieldId = 0;
+  int _gender = 0;
+  int _nativity = 0;
 
   @override
   void initState() {
     super.initState();
+    _initIdentity();
+    _preloadAssets();
+  }
+
+  void _initIdentity() {
     try {
       final identity = Get.find<IdentityService>().identity;
       _usernameController.text = identity.username;
       _avatarId = identity.avatarId;
       if (_avatarId < 0 || _avatarId >= AppAssets.maxAvatars) _avatarId = 0;
-      
+
       _topWearColor = identity.topWearColor;
       if (_topWearColor < 0 || _topWearColor > 15) _topWearColor = 0;
-      
+
       _bottomWearColor = identity.bottomWearColor;
       if (_bottomWearColor < 0 || _bottomWearColor > 15) _bottomWearColor = 0;
-      
-      _fieldId = identity.fieldId;
-      if (_fieldId < 0 || _fieldId >= mainFields.length) _fieldId = 0;
-      
-      _subfieldId = identity.subfieldId;
-      final subLen = subfieldsMap[_fieldId]?.length ?? 16;
-      if (_subfieldId < 0 || _subfieldId >= subLen) _subfieldId = 0;
+
+      _gender = identity.gender;
+      if (_gender < 0 || _gender >= genderOptions.length) _gender = 0;
+
+      _nativity = identity.nativity;
+      if (_nativity < 0 || _nativity >= nativityOptions.length) _nativity = 0;
     } catch (_) {}
+  }
+
+  Future<void> _preloadAssets() async {
+    // delay for app startup animation
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+
+    final futures = <Future<void>>[];
+    for (int i = 0; i < AppAssets.maxAvatars; i++) {
+      futures.add(precacheImage(
+        ResizeImage(AssetImage(AppAssets.getAvatarPath(i)), width: 144, height: 144),
+        context,
+      ));
+    }
+    await Future.wait(futures);
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -85,15 +109,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         avatarId: _avatarId,
         topWearColor: _topWearColor,
         bottomWearColor: _bottomWearColor,
-        fieldId: _fieldId,
-        subfieldId: _subfieldId,
+        gender: _gender,
+        nativity: _nativity,
         bio: _bioController.text,
         photoUrl: _photoUrl,
       );
       widget.onComplete();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to save profile: $e',
-          snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'Error',
+        'Failed to save profile: $e',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -101,12 +128,19 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   // ── Bold UI Helpers ──
 
-  InputDecoration _flatInputDecoration(String label, String hint, IconData icon, ThemeData theme) {
+  InputDecoration _flatInputDecoration(
+    String label,
+    String hint,
+    IconData icon,
+    ThemeData theme,
+  ) {
     return InputDecoration(
       labelText: label,
       hintText: hint,
       filled: true,
-      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
+        alpha: 0.5,
+      ),
       prefixIcon: Icon(icon, color: theme.colorScheme.onSurfaceVariant),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(20),
@@ -154,7 +188,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         ),
         centerTitle: true,
       ),
-      body: SafeArea(
+      body: _isLoading
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Preparing assets...'),
+                ],
+              ),
+            )
+          : SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Form(
@@ -165,7 +210,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 Text(
                   'This is how nearby devices will discover you.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 16, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(height: 32),
 
@@ -184,37 +233,65 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               Container(
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: theme.colorScheme.onSurface, width: 3),
+                                  border: Border.all(
+                                    color: theme.colorScheme.onSurface,
+                                    width: 3,
+                                  ),
                                 ),
                                 child: CircleAvatar(
                                   radius: 56,
-                                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                                  backgroundColor:
+                                      theme.colorScheme.surfaceContainerHighest,
                                   backgroundImage: _photoUrl != null
                                       ? CachedNetworkImageProvider(_photoUrl!)
                                       : null,
                                   child: _photoUrl == null && !uploading
-                                      ? Icon(Icons.person, size: 48, color: theme.colorScheme.onSurfaceVariant)
+                                      ? Icon(
+                                          Icons.person,
+                                          size: 48,
+                                          color: theme
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        )
                                       : uploading
-                                          ? const CircularProgressIndicator(strokeWidth: 2)
-                                          : null,
+                                      ? const CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        )
+                                      : null,
                                 ),
                               ),
                               Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary, // Snapchat Yellow
+                                  color: theme
+                                      .colorScheme
+                                      .primary, // Snapchat Yellow
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: theme.colorScheme.surface, width: 2),
+                                  border: Border.all(
+                                    color: theme.colorScheme.surface,
+                                    width: 2,
+                                  ),
                                 ),
-                                child: const Icon(Icons.camera_alt, size: 20, color: Colors.black),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  size: 20,
+                                  color: Colors.black,
+                                ),
                               ),
                             ],
                           );
                         }),
                       ),
                       const SizedBox(height: 12),
-                      Text('Tap to add photo', style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.w600)),
-                      
+                      Text(
+                        'Tap to add photo',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+
                       const SizedBox(height: 32),
 
                       // ── Offline Avatar Picker ──
@@ -222,7 +299,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Offline Radar Avatar',
-                          style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 18),
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -238,17 +319,29 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 margin: const EdgeInsets.only(right: 16),
-                                transform: Matrix4.diagonal3Values(isSelected ? 1.0 : 0.9, isSelected ? 1.0 : 0.9, 1.0),
+                                transform: Matrix4.diagonal3Values(
+                                  isSelected ? 1.0 : 0.9,
+                                  isSelected ? 1.0 : 0.9,
+                                  1.0,
+                                ),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: isSelected ? theme.colorScheme.primary : Colors.transparent,
+                                    color: isSelected
+                                        ? theme.colorScheme.primary
+                                        : Colors.transparent,
                                     width: isSelected ? 4 : 0,
                                   ),
                                 ),
                                 child: CircleAvatar(
                                   radius: 36,
-                                  backgroundImage: AssetImage(AppAssets.getAvatarPath(index)),
+                                  backgroundImage: ResizeImage(
+                                    AssetImage(
+                                      AppAssets.getAvatarPath(index),
+                                    ),
+                                    width: 144,
+                                    height: 144,
+                                  ),
                                 ),
                               ),
                             );
@@ -267,36 +360,68 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     children: [
                       TextFormField(
                         controller: _usernameController,
-                        style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
                         maxLength: 10,
-                        decoration: _flatInputDecoration('Offline Handle', '@NightOwl', Icons.alternate_email, theme),
+                        decoration: _flatInputDecoration(
+                          'Offline Handle',
+                          '@NightOwl',
+                          Icons.alternate_email,
+                          theme,
+                        ),
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) return 'Required for offline discovery';
-                          if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) return 'Only letters, numbers, and underscores';
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Required for offline discovery';
+                          }
+                          if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) {
+                            return 'Only letters, numbers, and underscores';
+                          }
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _nameController,
-                        style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
                         maxLength: 30,
                         textCapitalization: TextCapitalization.words,
-                        decoration: _flatInputDecoration('Display Name', 'How should people know you?', Icons.badge_outlined, theme),
+                        decoration: _flatInputDecoration(
+                          'Display Name',
+                          'How should people know you?',
+                          Icons.badge_outlined,
+                          theme,
+                        ),
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) return 'Please enter a display name';
-                          if (value.trim().length < 2) return 'Name must be at least 2 characters';
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter a display name';
+                          }
+                          if (value.trim().length < 2) {
+                            return 'Name must be at least 2 characters';
+                          }
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _bioController,
-                        style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
                         maxLength: 100,
                         maxLines: 2,
                         textCapitalization: TextCapitalization.sentences,
-                        decoration: _flatInputDecoration('Bio (optional)', 'A short tagline about you', Icons.info_outline, theme),
+                        decoration: _flatInputDecoration(
+                          'Bio (optional)',
+                          'A short tagline about you',
+                          Icons.info_outline,
+                          theme,
+                        ),
                       ),
                     ],
                   ),
@@ -309,7 +434,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Outfit Colors', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 18)),
+                      Text(
+                        'Outfit Colors',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       Row(
                         children: [
@@ -317,18 +449,50 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             child: DropdownButtonFormField<int>(
                               isExpanded: true,
                               dropdownColor: theme.colorScheme.surface,
-                              style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600),
-                              value: _topWearColor,
-                              decoration: _flatInputDecoration('Top Color', '', Icons.checkroom, theme),
-                              items: [
-                                "None/Hide", "Black", "White", "Gray", "Red", "Blue", 
-                                "Green", "Yellow", "Orange", "Purple", "Pink", "Brown", 
-                                "Beige", "Multicolor", "Denim", "Other"
-                              ].asMap().entries.map((e) => DropdownMenuItem(
-                                value: e.key, 
-                                child: Text(e.value, overflow: TextOverflow.ellipsis),
-                              )).toList(),
-                              onChanged: (v) => setState(() => _topWearColor = v ?? 0),
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              initialValue: _topWearColor,
+                              decoration: _flatInputDecoration(
+                                'Top Color',
+                                '',
+                                Icons.checkroom,
+                                theme,
+                              ),
+                              items:
+                                  [
+                                        "None/Hide",
+                                        "Black",
+                                        "White",
+                                        "Gray",
+                                        "Red",
+                                        "Blue",
+                                        "Green",
+                                        "Yellow",
+                                        "Orange",
+                                        "Purple",
+                                        "Pink",
+                                        "Brown",
+                                        "Beige",
+                                        "Multicolor",
+                                        "Denim",
+                                        "Other",
+                                      ]
+                                      .asMap()
+                                      .entries
+                                      .map(
+                                        (e) => DropdownMenuItem(
+                                          value: e.key,
+                                          child: Text(
+                                            e.value,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                              onChanged: (v) =>
+                                  setState(() => _topWearColor = v ?? 0),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -336,18 +500,50 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             child: DropdownButtonFormField<int>(
                               isExpanded: true,
                               dropdownColor: theme.colorScheme.surface,
-                              style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600),
-                              value: _bottomWearColor,
-                              decoration: _flatInputDecoration('Bottom Color', '', Icons.dry_cleaning, theme),
-                              items: [
-                                "None/Hide", "Black", "White", "Gray", "Red", "Blue", 
-                                "Green", "Yellow", "Orange", "Purple", "Pink", "Brown", 
-                                "Beige", "Multicolor", "Denim", "Other"
-                              ].asMap().entries.map((e) => DropdownMenuItem(
-                                value: e.key, 
-                                child: Text(e.value, overflow: TextOverflow.ellipsis),
-                              )).toList(),
-                              onChanged: (v) => setState(() => _bottomWearColor = v ?? 0),
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              initialValue: _bottomWearColor,
+                              decoration: _flatInputDecoration(
+                                'Bottom Color',
+                                '',
+                                Icons.dry_cleaning,
+                                theme,
+                              ),
+                              items:
+                                  [
+                                        "None/Hide",
+                                        "Black",
+                                        "White",
+                                        "Gray",
+                                        "Red",
+                                        "Blue",
+                                        "Green",
+                                        "Yellow",
+                                        "Orange",
+                                        "Purple",
+                                        "Pink",
+                                        "Brown",
+                                        "Beige",
+                                        "Multicolor",
+                                        "Denim",
+                                        "Other",
+                                      ]
+                                      .asMap()
+                                      .entries
+                                      .map(
+                                        (e) => DropdownMenuItem(
+                                          value: e.key,
+                                          child: Text(
+                                            e.value,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                              onChanged: (v) =>
+                                  setState(() => _bottomWearColor = v ?? 0),
                             ),
                           ),
                         ],
@@ -363,7 +559,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Your Vibe', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w900, fontSize: 18)),
+                      Text(
+                        'Your Vibe',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       Row(
                         children: [
@@ -371,18 +574,31 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             child: DropdownButtonFormField<int>(
                               isExpanded: true,
                               dropdownColor: theme.colorScheme.surface,
-                              style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600),
-                              value: _fieldId,
-                              decoration: _flatInputDecoration('Field', '', Icons.category_rounded, theme),
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              initialValue: _gender,
+                              decoration: _flatInputDecoration(
+                                'Gender',
+                                '',
+                                Icons.person_rounded,
+                                theme,
+                              ),
                               items: List.generate(
-                                mainFields.length,
-                                (index) => DropdownMenuItem(value: index, child: Text(getFieldName(index), overflow: TextOverflow.ellipsis)),
+                                genderOptions.length,
+                                (index) => DropdownMenuItem(
+                                  value: index,
+                                  child: Text(
+                                    getGenderName(index),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ),
                               onChanged: (v) {
                                 if (v != null) {
                                   setState(() {
-                                    _fieldId = v;
-                                    _subfieldId = 0;
+                                    _gender = v;
                                   });
                                 }
                               },
@@ -393,15 +609,29 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             child: DropdownButtonFormField<int>(
                               isExpanded: true,
                               dropdownColor: theme.colorScheme.surface,
-                              style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.w600),
-                              value: _subfieldId,
-                              decoration: _flatInputDecoration('Niche', '', Icons.tag_rounded, theme),
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              initialValue: _nativity,
+                              decoration: _flatInputDecoration(
+                                'Nativity',
+                                '',
+                                Icons.location_on_rounded,
+                                theme,
+                              ),
                               items: List.generate(
-                                 subfieldsMap[_fieldId]?.length ?? 16,
-                                 (index) => DropdownMenuItem(value: index, child: Text(getSubfieldName(_fieldId, index), overflow: TextOverflow.ellipsis))
+                                nativityOptions.length,
+                                (index) => DropdownMenuItem(
+                                  value: index,
+                                  child: Text(
+                                    getNativityName(index),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
                               ),
                               onChanged: (v) {
-                                if (v != null) setState(() => _subfieldId = v);
+                                if (v != null) setState(() => _nativity = v);
                               },
                             ),
                           ),
@@ -410,7 +640,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 32),
 
                 // ── Submit button ──
@@ -419,16 +649,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   height: 64,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: theme.colorScheme.primary, // Snapchat yellow!
+                      backgroundColor:
+                          theme.colorScheme.primary, // Snapchat yellow!
                       foregroundColor: Colors.black, // Dark text on yellow
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(32),
+                      ),
                     ),
                     onPressed: _saving ? null : _save,
                     child: _saving
                         ? const SizedBox(
                             width: 28,
                             height: 28,
-                            child: CircularProgressIndicator(strokeWidth: 3, color: Colors.black),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              color: Colors.black,
+                            ),
                           )
                         : const Text(
                             'Save & Update Radar',

@@ -63,8 +63,8 @@ class ProfileController extends GetxController {
     required int avatarId,
     required int topWearColor,
     required int bottomWearColor,
-    required int fieldId,
-    required int subfieldId,
+    required int gender,
+    required int nativity,
     String? bio,
     String? photoUrl,
   }) async {
@@ -78,8 +78,8 @@ class ProfileController extends GetxController {
       avatarId: avatarId,
       topWearColor: topWearColor,
       bottomWearColor: bottomWearColor,
-      fieldId: fieldId,
-      subfieldId: subfieldId,
+      gender: gender,
+      nativity: nativity,
     );
 
     final newProfile = UserProfile(

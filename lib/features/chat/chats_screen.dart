@@ -119,9 +119,29 @@ class _ChatsScreenState extends State<ChatsScreen> {
           final signedIn = await firebase.signInAnonymously(identity);
           if (!signedIn) return;
         }
-        for (final conn in accepted) {
-          await firebase.ensureConversation(myId, conn.otherOfflineId);
-        }
+
+        // Detach conversation-document seeding so it doesn't block the UI rendering
+        // with 500+ potential sequential network reads/writes during load tests.
+        Future.microtask(() async {
+          // Add a small initial delay to let the app finish starting without lag
+          await Future.delayed(const Duration(seconds: 3));
+
+          // Batch process to prevent network bottlenecks and UI freezes
+          const batchSize = 10;
+          for (int i = 0; i < accepted.length; i += batchSize) {
+            final chunk = accepted.skip(i).take(batchSize);
+            await Future.wait(
+              chunk.map(
+                (conn) =>
+                    firebase.ensureConversation(myId, conn.otherOfflineId),
+              ),
+            );
+            // Allow the flutter engine to breathe between network batches
+            await Future.delayed(const Duration(milliseconds: 200));
+          }
+        }).catchError((e) {
+          Get.log('ChatsScreen: background conversation seeding failed – $e');
+        });
       }
     } catch (e) {
       Get.log('ChatsScreen: seed from accepted connections failed – $e');
@@ -217,7 +237,10 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
         return ListView.builder(
           itemCount: docs.length,
-          padding: const EdgeInsets.only(top: 8, bottom: 84), // Avoid nav bar overlap
+          padding: const EdgeInsets.only(
+            top: 8,
+            bottom: 84,
+          ), // Avoid nav bar overlap
           itemBuilder: (context, index) {
             final doc = docs[index];
             final data = (doc.data() as Map<String, dynamic>?) ?? {};
@@ -268,7 +291,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
                         child: Text(
                           _formatTime(at),
                           style: TextStyle(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
                             fontWeight: FontWeight.w500,
                             fontSize: 12,
                           ),

@@ -129,6 +129,37 @@ class LocalDbService extends GetxService {
     return _canonicalPeerId(a) == _canonicalPeerId(b);
   }
 
+  /// Bulk injects fake users and connections to test scrolling and DB load.
+  Future<void> runDeveloperLoadTest(String myOfflineId) async {
+    final db = await database;
+    final batch = db.batch();
+    final now = DateTime.now();
+    for (int i = 0; i < 1000; i++) {
+      final offlineId = 'mock_peer_${i.toString().padLeft(6, '0')}';
+      batch.insert('known_users', {
+        'offline_id': offlineId,
+        'display_name': 'Stress Bot $i',
+        'bio': 'Simulated profile for load testing.',
+        'photo_url': null,
+        'avatar_id': i % 10,
+        'last_seen': now.toIso8601String(),
+        'last_rssi': -40 - (i % 50),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+      if (i < 500) {
+        batch.insert('connections', {
+          'my_offline_id': myOfflineId,
+          'other_offline_id': offlineId,
+          'status': i % 10 == 0 ? 1 : 2, // 1=pendingIncoming, 2=accepted
+          'first_met_at': now
+              .subtract(Duration(days: i % 30, hours: i % 24))
+              .toIso8601String(),
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+    }
+    await batch.commit(noResult: true);
+  }
+
   /// Inserts or updates a known user profile.
   Future<void> upsertKnownUser(
     UserProfile profile, {
@@ -151,6 +182,22 @@ class LocalDbService extends GetxService {
     final db = await database;
     final rows = await db.query('known_users');
     return rows.map((r) => UserProfile.fromMap(r)).toList();
+  }
+
+  /// Returns a specific known user profile by offline ID (canonical).
+  Future<UserProfile?> getKnownUser(String offlineId) async {
+    final db = await database;
+    final canonicalId = _canonicalPeerId(offlineId);
+    final rows = await db.query(
+      'known_users',
+      where: 'offline_id = ?',
+      whereArgs: [canonicalId],
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      return UserProfile.fromMap(rows.first);
+    }
+    return null;
   }
 
   // ──────────────────── Connections ────────────────────

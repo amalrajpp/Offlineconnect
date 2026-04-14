@@ -198,26 +198,51 @@ class _HomeShell extends StatefulWidget {
 class _HomeShellState extends State<_HomeShell> {
   int _selectedIndex = 0;
 
-  final List<Widget> _screens = [
-    const NearbyScreen(key: ValueKey('tab-nearby')),
-    const ConnectionsScreen(key: ValueKey('tab-connections')),
-    const ChatsScreen(key: ValueKey('tab-chats')),
-    ProfileSetupScreen(
-      key: const ValueKey('tab-profile'),
-      onComplete: () {
-        Get.snackbar(
-          'Profile Saved',
-          'Your identity has been updated locally.',
-          snackPosition: SnackPosition.BOTTOM,
+  // We only build the screens once they are visited to prevent
+  // background lag on startup (due to animations/image loading).
+  final List<Widget?> _screens = [null, null, null, null];
+
+  Widget _getScreen(int index) {
+    // If the index isn't the active one and hasn't been visited, return a dummy placeholder.
+    if (_selectedIndex != index && _screens[index] == null) {
+      return const SizedBox.shrink();
+    }
+
+    if (_screens[index] != null) return _screens[index]!;
+
+    switch (index) {
+      case 0:
+        _screens[0] = const NearbyScreen(key: ValueKey('tab-nearby'));
+        break;
+      case 1:
+        _screens[1] = const ConnectionsScreen(key: ValueKey('tab-connections'));
+        break;
+      case 2:
+        _screens[2] = const ChatsScreen(key: ValueKey('tab-chats'));
+        break;
+      case 3:
+        _screens[3] = ProfileSetupScreen(
+          key: const ValueKey('tab-profile'),
+          onComplete: () {
+            Get.snackbar(
+              'Profile Saved',
+              'Your identity has been updated locally.',
+              snackPosition: SnackPosition.BOTTOM,
+            );
+          },
         );
-      },
-    ),
-  ];
+        break;
+    }
+    return _screens[index]!;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: _screens),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: List.generate(4, (i) => _getScreen(i)),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
