@@ -332,8 +332,8 @@ class BleService extends GetxService {
         ((identity.topWearColor & 0x0F) << 4) |
         (identity.bottomWearColor & 0x0F);
 
-    // Byte 16 - Bio Bitfield (Gender | Nativity)
-    data[16] = ((identity.gender & 0x07) << 5) | (identity.nativity & 0x1F);
+    // Byte 16 - Bio Bitfield (Field | Subfield)
+    data[16] = ((identity.gender & 0x0F) << 4) | (identity.nativity & 0x0F);
 
     // Bytes 17-26 – sender username
     final nameBytes = utf8.encode(identity.username);
@@ -351,7 +351,8 @@ class BleService extends GetxService {
       iosData[4] =
           ((identity.topWearColor & 0x0F) << 4) |
           (identity.bottomWearColor & 0x0F);
-      iosData[5] = ((identity.gender & 0x07) << 5) | (identity.nativity & 0x1F);
+      iosData[5] =
+          ((identity.gender & 0x0F) << 4) | (identity.nativity & 0x0F);
       for (var i = 0; i < 5; i++) {
         iosData[6 + i] = i < myBytes.length ? myBytes[i] : 0;
       }
@@ -485,8 +486,8 @@ class BleService extends GetxService {
     final hasTarget = targetBytes.any((b) => b != 0);
     final targetHash = hasTarget ? _bytesToHex(targetBytes) : null;
 
-    final gender = (bioBits >> 5) & 0x07;
-    final nativity = bioBits & 0x1F;
+    final gender = (bioBits >> 4) & 0x0F;
+    final nativity = bioBits & 0x0F;
 
     String? offlineUsername;
     if (raw.length >= 27) {

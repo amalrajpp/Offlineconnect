@@ -1,10 +1,10 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:offline_connect/core/constants/bio_constants.dart';
 
 import '../../core/models/ble_models.dart';
 import '../../core/models/connection.dart';
-import '../../core/constants/bio_constants.dart';
 import '../../core/constants/assets.dart';
 import '../chat/chat_screen.dart';
 import 'nearby_controller.dart';
@@ -19,10 +19,49 @@ class NearbyScreen extends StatefulWidget {
 }
 
 class _NearbyScreenState extends State<NearbyScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _radarController;
+  late final AnimationController _recenterController;
+  late Animation<Matrix4> _recenterAnimation;
 
-  late final AnimationController _pulseController;
+  final TransformationController _viewController = TransformationController();
+  bool _viewInitialized = false;
+  late Matrix4 _initialMatrix;
+
+  // Cache to store the computed non-overlapping positions for discovered peers
+  // to avoid recalculating O(N^2) spiral logic continuously on the UI thread.
+  final Map<String, Offset> _cachedPositions = {};
+
+  void _initViewMatrix(BoxConstraints constraints) {
+    if (_viewInitialized) return;
+    _viewInitialized = true;
+
+    const double mapSize = 3000.0;
+    // Display a comfortable zoomed-in version based on the screen size.
+    final scale = math.min(constraints.maxWidth, constraints.maxHeight) / 600.0;
+
+    // Center the camera exactly on the middle point of our 3000x3000 map
+    final tx = (constraints.maxWidth / 2.0) - ((mapSize / 2.0) * scale);
+    final ty = (constraints.maxHeight / 2.0) - ((mapSize / 2.0) * scale);
+
+    _initialMatrix = Matrix4.identity()
+      ..setTranslationRaw(tx, ty, 0.0)
+      ..scale(scale, scale, 1.0);
+
+    _viewController.value = _initialMatrix;
+  }
+
+  void _recenter() {
+    if (!_viewInitialized) return;
+    _recenterAnimation =
+        Matrix4Tween(begin: _viewController.value, end: _initialMatrix).animate(
+          CurvedAnimation(
+            parent: _recenterController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+    _recenterController.forward(from: 0.0);
+  }
 
   @override
   void initState() {
@@ -33,17 +72,20 @@ class _NearbyScreenState extends State<NearbyScreen>
       duration: const Duration(seconds: 4),
     )..repeat();
 
-    // Pulse animation for the center dot and blips
-    _pulseController = AnimationController(
+    _recenterController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 600),
+    );
+    _recenterController.addListener(() {
+      _viewController.value = _recenterAnimation.value;
+    });
   }
 
   @override
   void dispose() {
     _radarController.dispose();
-    _pulseController.dispose();
+    _recenterController.dispose();
+    _viewController.dispose();
     super.dispose();
   }
 
@@ -60,11 +102,17 @@ class _NearbyScreenState extends State<NearbyScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          // Developer Load Test button
           IconButton(
-            icon: const Icon(Icons.bug_report),
+            icon: const Icon(Icons.bug_report_outlined),
             tooltip: 'Run Load Test',
-            onPressed: () => controller.runDeveloperLoadTest(),
+            onPressed: () {
+              controller.runDeveloperLoadTest();
+              Get.snackbar(
+                'Load Test Initiated',
+                'Injected 300 devices. Simulating +10 more every 3s...',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+            },
           ),
           // Play / Pause toggle.
           Obx(() {
@@ -85,12 +133,13 @@ class _NearbyScreenState extends State<NearbyScreen>
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final center = Offset(
-            constraints.maxWidth / 2,
-            constraints.maxHeight / 2,
-          );
-          final maxRadius =
-              math.min(constraints.maxWidth, constraints.maxHeight) * 0.45;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _initViewMatrix(constraints);
+          });
+
+          const double mapSize = 3000.0;
+          final center = const Offset(mapSize / 2, mapSize / 2);
+          final maxRadius = mapSize / 2 * 0.95;
 
           return Obx(() {
             if (!controller.scanning.value && controller.users.isEmpty) {
@@ -122,87 +171,250 @@ class _NearbyScreenState extends State<NearbyScreen>
             return Stack(
               fit: StackFit.expand,
               children: [
-                // 1. Base Sonar Sweep
-                AnimatedBuilder(
-                  animation: _radarController,
-                  builder: (_, __) => CustomPaint(
-                    painter: RadarPainter(
-                      _radarController.value,
-                      theme.colorScheme.primary,
+                InteractiveViewer(
+                  transformationController: _viewController,
+                  constrained: false,
+                  boundaryMargin: const EdgeInsets.all(
+                    mapSize,
+                  ), // let them pan around
+                  minScale: 0.05,
+                  maxScale: 10.0,
+                  child: SizedBox(
+                    width: mapSize,
+                    height: mapSize,
+                    child: Stack(
+                      fit: StackFit.loose,
+                      children: [
+                        // 0. Virtual Space Grid Background
+                        Positioned.fill(
+                          child: RepaintBoundary(
+                            child: CustomPaint(
+                              painter: VirtualSpacePainter(
+                                theme.colorScheme.primary.withValues(
+                                  alpha: 0.08,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // 1. Base Sonar Sweep
+                        AnimatedBuilder(
+                          animation: _radarController,
+                          builder: (_, __) => CustomPaint(
+                            painter: RadarPainter(
+                              _radarController.value,
+                              theme.colorScheme.primary,
+                            ),
+                          ),
+                        ),
+
+                        // 2. Center User dot (Me) - Pulsing
+                        Positioned(
+                          left: center.dx - 12,
+                          top: center.dy - 12,
+                          child: AnimatedBuilder(
+                            animation: _radarController,
+                            builder: (context, child) {
+                              // Gentle pulse between 1.0 and 1.3
+                              final pulse =
+                                  1.0 +
+                                  math.sin(
+                                        _radarController.value * 2 * math.pi,
+                                      ) *
+                                      0.15;
+                              return Transform.scale(
+                                scale: pulse,
+                                child: child,
+                              );
+                            },
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: theme.colorScheme.onSurface,
+                                  width: 3,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // 3. Floating Blips (Other Users) with Anti-Overlap Calculation
+                        ...() {
+                          final placedRects = <Rect>[];
+
+                          // Sync cache: Remove peers that are no longer discovered
+                          final currentHashes = controller.users
+                              .map((e) => e.myHash)
+                              .toSet();
+                          _cachedPositions.removeWhere(
+                            (hash, _) => !currentHashes.contains(hash),
+                          );
+
+                          // Block previously cached positions so new devices don't land on them
+                          for (final pos in _cachedPositions.values) {
+                            placedRects.add(
+                              Rect.fromCenter(
+                                center: pos,
+                                width: 64,
+                                height: 64,
+                              ),
+                            );
+                          }
+
+                          // Sort users so overlap resolution happens in a deterministic order
+                          final sortedUsers = controller.users.toList()
+                            ..sort((a, b) => a.myHash.compareTo(b.myHash));
+
+                          return sortedUsers.map((peer) {
+                            if (_cachedPositions.containsKey(peer.myHash)) {
+                              final pos = _cachedPositions[peer.myHash]!;
+                              return _buildPositionedBlip(
+                                pos.dx,
+                                pos.dy,
+                                peer,
+                                theme,
+                                controller,
+                                _radarController,
+                                context,
+                                _buildRadarBlip,
+                                _showPeerDetails,
+                              );
+                            }
+
+                            // Normalize RSSI: -30 (close) to -100 (far)
+                            double rawRssi = peer.rssi.toDouble();
+                            double normalized =
+                                (rawRssi + 30) / -70; // Map to [0.0, 1.0]
+                            normalized = normalized.clamp(0.1, 1.0);
+
+                            // Initial deterministic placement
+                            double angleDegrees = (peer.myHash.hashCode % 360)
+                                .toDouble();
+                            double d = normalized * maxRadius;
+
+                            double x = 0;
+                            double y = 0;
+                            bool overlapped = true;
+                            int attempts = 0;
+
+                            // Collision avoidance: Spiral outwards if overlapping
+                            while (overlapped && attempts < 100) {
+                              final angleRads =
+                                  angleDegrees * (math.pi / 180.0);
+                              x = center.dx + d * math.cos(angleRads);
+                              y = center.dy + d * math.sin(angleRads);
+
+                              final rect = Rect.fromCenter(
+                                center: Offset(x, y),
+                                width: 64, // Touch target + spacing
+                                height: 64,
+                              );
+
+                              // Check overlap against previously placed avatars
+                              overlapped = placedRects.any(
+                                (r) => r.overlaps(rect),
+                              );
+
+                              if (overlapped) {
+                                angleDegrees +=
+                                    13.0; // Rotate a prime-ish amount
+                                d +=
+                                    5.0; // Spirals gently outward away from center
+                                attempts++;
+                              } else {
+                                placedRects.add(rect);
+                              }
+                            }
+
+                            if (overlapped) {
+                              placedRects.add(
+                                Rect.fromCenter(
+                                  center: Offset(x, y),
+                                  width: 64,
+                                  height: 64,
+                                ),
+                              );
+                            }
+
+                            // Cache calculated position
+                            _cachedPositions[peer.myHash] = Offset(x, y);
+
+                            return _buildPositionedBlip(
+                              x,
+                              y,
+                              peer,
+                              theme,
+                              controller,
+                              _radarController,
+                              context,
+                              _buildRadarBlip,
+                              _showPeerDetails,
+                            );
+                          });
+                        }(),
+                      ],
                     ),
                   ),
                 ),
 
-                // 2. Center User dot (Me)
-                AnimatedBuilder(
-                  animation: _pulseController,
-                  builder: (context, child) {
-                    final scale = 1.0 + (_pulseController.value * 0.15);
-                    return Positioned(
-                      left: center.dx - 12 * scale,
-                      top: center.dy - 12 * scale,
+                // Fixed HUD Overlay: Scanning Indicator
+                if (controller.scanning.value)
+                  Positioned(
+                    top: 24,
+                    left: 0,
+                    right: 0,
+                    child: Center(
                       child: Container(
-                        width: 24 * scale,
-                        height: 24 * scale,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary,
-                          shape: BoxShape.circle,
+                          color: theme.colorScheme.surface.withValues(
+                            alpha: 0.8,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: theme.colorScheme.onSurface,
-                            width: 3 * scale,
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                           boxShadow: [
                             BoxShadow(
                               color: theme.colorScheme.primary.withValues(
-                                alpha: 0.4 * _pulseController.value,
+                                alpha: 0.1,
                               ),
-                              blurRadius: 10 * scale,
-                              spreadRadius: 4 * scale,
+                              blurRadius: 8,
+                              spreadRadius: 2,
                             ),
                           ],
                         ),
-                      ),
-                    );
-                  },
-                ),
-
-                // 3. Floating Blips (Other Users)
-                ...controller.users.map((peer) {
-                  // Normalize RSSI: -30 (close) to -100 (far)
-                  double rawRssi = peer.rssi.toDouble();
-                  double normalized = (rawRssi + 30) / -70; // Map to [0.0, 1.0]
-                  normalized = normalized.clamp(0.1, 1.0);
-
-                  // Deterministic Sector Placement via MyHash
-                  final angleDegrees = peer.myHash.hashCode % 360;
-                  final angleRads = angleDegrees * (math.pi / 180.0);
-
-                  final d = normalized * maxRadius;
-                  final x = center.dx + d * math.cos(angleRads);
-                  final y = center.dy + d * math.sin(angleRads);
-
-                  return Positioned(
-                    left: x - 26, // Center avatar is 52x52
-                    top: y - 26,
-                    child: GestureDetector(
-                      onTap: () => _showPeerDetails(context, peer, controller),
-                      child: _buildRadarBlip(peer, theme, controller),
-                    ),
-                  );
-                }),
-
-                // Scanning Text Overlay (if empty but scanning)
-                if (controller.users.isEmpty)
-                  Positioned(
-                    bottom: 40,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Text(
-                        'Scanning perimeter...',
-                        style: TextStyle(
-                          color: theme.colorScheme.primary,
-                          letterSpacing: 1.2,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Scanning perimeter...',
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -211,6 +423,15 @@ class _NearbyScreenState extends State<NearbyScreen>
             );
           });
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _recenter,
+        tooltip: 'Recenter Radar',
+        backgroundColor: theme.colorScheme.primaryContainer,
+        child: Icon(
+          Icons.my_location,
+          color: theme.colorScheme.onPrimaryContainer,
+        ),
       ),
     );
   }
@@ -447,7 +668,7 @@ class _NearbyScreenState extends State<NearbyScreen>
     final category = getGenderName(peer.gender);
     final subCategory = getNativityName(peer.nativity);
 
-    return '$desc Gender: $category -> Nativity: $subCategory'.trim();
+    return '$desc Currently into: $category -> $subCategory'.trim();
   }
 }
 
@@ -499,4 +720,99 @@ class RadarPainter extends CustomPainter {
   bool shouldRepaint(RadarPainter oldDelegate) =>
       oldDelegate.sweepProgress != sweepProgress ||
       oldDelegate.baseColor != baseColor;
+}
+
+/// Draws a very subtle, modern tech-grid representing the "virtual space" plane.
+class VirtualSpacePainter extends CustomPainter {
+  final Color gridColor;
+
+  VirtualSpacePainter(this.gridColor);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Draw a deep radial gradient for a void-like background
+    final bgPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          gridColor.withValues(
+            alpha: gridColor.a * 2.0,
+          ), // Center slightly lighter
+          const Color(0xFF000000), // Fade to pure black at edges
+        ],
+        stops: const [0.0, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+
+    // 2. Draw the grid
+    const double gridSize = 100.0;
+
+    final paint = Paint()
+      ..color = gridColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    // Draw vertical lines
+    for (double x = 0; x <= size.width; x += gridSize) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+
+    // Draw horizontal lines
+    for (double y = 0; y <= size.height; y += gridSize) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+
+    // Add small crosses or dots at intersections to make it look futuristic
+    final crossPaint = Paint()
+      ..color = gridColor.withValues(alpha: gridColor.a * 1.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    for (double x = gridSize; x < size.width; x += gridSize) {
+      for (double y = gridSize; y < size.height; y += gridSize) {
+        canvas.drawLine(Offset(x - 5, y), Offset(x + 5, y), crossPaint);
+        canvas.drawLine(Offset(x, y - 5), Offset(x, y + 5), crossPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(VirtualSpacePainter oldDelegate) =>
+      oldDelegate.gridColor != gridColor;
+}
+
+Widget _buildPositionedBlip(
+  double x,
+  double y,
+  DiscoveredPeer peer,
+  ThemeData theme,
+  NearbyController controller,
+  AnimationController radarController,
+  BuildContext context,
+  Widget Function(DiscoveredPeer, ThemeData, NearbyController) blipBuilder,
+  void Function(BuildContext, DiscoveredPeer, NearbyController) tapHandler,
+) {
+  return Positioned(
+    left: x - 24, // Assuming avatar is 48x48 bounds visually
+    top: y - 24,
+    child: AnimatedBuilder(
+      animation: radarController,
+      builder: (context, child) {
+        // Deterministic phase so they bob independently
+        final phase = (peer.myHash.hashCode % 100) / 100.0 * 2 * math.pi;
+        // Gentle bobbing effect
+        final floatY =
+            math.sin(radarController.value * 2 * math.pi + phase) * 8.0;
+        return Transform.translate(offset: Offset(0, floatY), child: child);
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => tapHandler(context, peer, controller),
+        child: Padding(
+          padding: const EdgeInsets.all(4.0),
+          child: blipBuilder(peer, theme, controller),
+        ),
+      ),
+    ),
+  );
 }

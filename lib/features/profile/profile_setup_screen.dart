@@ -24,7 +24,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _nameController = TextEditingController();
   final _bioController = TextEditingController();
   bool _saving = false;
-  bool _isLoading = true;
+  bool _isLoading = true; // Added loading state back per request
   String? _photoUrl;
 
   int _avatarId = 0;
@@ -33,11 +33,72 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   int _gender = 0;
   int _nativity = 0;
 
+  // Cached constants for faster building
+  static const List<String> _outfitColors = [
+    "None/Hide",
+    "Black",
+    "White",
+    "Gray",
+    "Red",
+    "Blue",
+    "Green",
+    "Yellow",
+    "Orange",
+    "Purple",
+    "Pink",
+    "Brown",
+    "Beige",
+    "Multicolor",
+    "Denim",
+    "Other",
+  ];
+
+  late final List<DropdownMenuItem<int>> _outfitColorItems;
+  late final List<DropdownMenuItem<int>> _fieldItems;
+  final Map<int, List<DropdownMenuItem<int>>> _subfieldItemsCache = {};
+
   @override
   void initState() {
     super.initState();
     _initIdentity();
+    _buildDropdownCaches();
     _preloadAssets();
+  }
+
+  void _buildDropdownCaches() {
+    _outfitColorItems = _outfitColors.asMap().entries.map((e) {
+      return DropdownMenuItem<int>(
+        value: e.key,
+        child: Text(e.value, overflow: TextOverflow.ellipsis),
+      );
+    }).toList();
+
+    _fieldItems = List.generate(
+      genderOptions.length,
+      (index) => DropdownMenuItem(
+        value: index,
+        child: Text(getGenderName(index), overflow: TextOverflow.ellipsis),
+      ),
+    );
+  }
+
+  List<DropdownMenuItem<int>> _getSubfieldItems(int fieldIndex) {
+    if (_subfieldItemsCache.containsKey(fieldIndex)) {
+      return _subfieldItemsCache[fieldIndex]!;
+    }
+    final len = nativityOptions.length;
+    final items = List.generate(
+      len,
+      (idx) => DropdownMenuItem(
+        value: idx,
+        child: Text(
+          getNativityName(idx),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+    _subfieldItemsCache[fieldIndex] = items;
+    return items;
   }
 
   void _initIdentity() {
@@ -57,12 +118,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       if (_gender < 0 || _gender >= genderOptions.length) _gender = 0;
 
       _nativity = identity.nativity;
-      if (_nativity < 0 || _nativity >= nativityOptions.length) _nativity = 0;
+      final subLen = nativityOptions.length;
+      if (_nativity < 0 || _nativity >= subLen) _nativity = 0;
     } catch (_) {}
   }
 
   Future<void> _preloadAssets() async {
-    // delay for app startup animation
     await Future.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
 
@@ -82,7 +143,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     await Future.wait(futures);
 
     if (mounted) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -195,13 +258,30 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         centerTitle: true,
       ),
       body: _isLoading
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Preparing assets...'),
+                  const Spacer(),
+                  Image.asset(
+                    AppAssets.getAvatarPath(0),
+                    width: 72,
+                    height: 72,
+                  ),
+                  const SizedBox(height: 24),
+                  CircularProgressIndicator(
+                    color: theme.colorScheme.primary,
+                    strokeWidth: 4,
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Loading virtual closet...',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
                 ],
               ),
             )
@@ -388,14 +468,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 theme,
                               ),
                               validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
+                                if (value == null || value.trim().isEmpty)
                                   return 'Required for offline discovery';
-                                }
-                                if (!RegExp(
-                                  r'^[a-zA-Z0-9_]+$',
-                                ).hasMatch(value)) {
+                                if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value))
                                   return 'Only letters, numbers, and underscores';
-                                }
                                 return null;
                               },
                             ),
@@ -415,12 +491,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 theme,
                               ),
                               validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
+                                if (value == null || value.trim().isEmpty)
                                   return 'Please enter a display name';
-                                }
-                                if (value.trim().length < 2) {
+                                if (value.trim().length < 2)
                                   return 'Name must be at least 2 characters';
-                                }
                                 return null;
                               },
                             ),
@@ -478,38 +552,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                       Icons.checkroom,
                                       theme,
                                     ),
-                                    items:
-                                        [
-                                              "None/Hide",
-                                              "Black",
-                                              "White",
-                                              "Gray",
-                                              "Red",
-                                              "Blue",
-                                              "Green",
-                                              "Yellow",
-                                              "Orange",
-                                              "Purple",
-                                              "Pink",
-                                              "Brown",
-                                              "Beige",
-                                              "Multicolor",
-                                              "Denim",
-                                              "Other",
-                                            ]
-                                            .asMap()
-                                            .entries
-                                            .map(
-                                              (e) => DropdownMenuItem(
-                                                value: e.key,
-                                                child: Text(
-                                                  e.value,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            )
-                                            .toList(),
+                                    items: _outfitColorItems,
                                     onChanged: (v) =>
                                         setState(() => _topWearColor = v ?? 0),
                                   ),
@@ -530,38 +573,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                       Icons.dry_cleaning,
                                       theme,
                                     ),
-                                    items:
-                                        [
-                                              "None/Hide",
-                                              "Black",
-                                              "White",
-                                              "Gray",
-                                              "Red",
-                                              "Blue",
-                                              "Green",
-                                              "Yellow",
-                                              "Orange",
-                                              "Purple",
-                                              "Pink",
-                                              "Brown",
-                                              "Beige",
-                                              "Multicolor",
-                                              "Denim",
-                                              "Other",
-                                            ]
-                                            .asMap()
-                                            .entries
-                                            .map(
-                                              (e) => DropdownMenuItem(
-                                                value: e.key,
-                                                child: Text(
-                                                  e.value,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            )
-                                            .toList(),
+                                    items: _outfitColorItems,
                                     onChanged: (v) => setState(
                                       () => _bottomWearColor = v ?? 0,
                                     ),
@@ -601,25 +613,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                     ),
                                     initialValue: _gender,
                                     decoration: _flatInputDecoration(
-                                      'Gender',
+                                      'Field',
                                       '',
-                                      Icons.person_rounded,
+                                      Icons.category_rounded,
                                       theme,
                                     ),
-                                    items: List.generate(
-                                      genderOptions.length,
-                                      (index) => DropdownMenuItem(
-                                        value: index,
-                                        child: Text(
-                                          getGenderName(index),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ),
+                                    items: _fieldItems,
                                     onChanged: (v) {
                                       if (v != null) {
                                         setState(() {
                                           _gender = v;
+                                          _nativity = 0;
                                         });
                                       }
                                     },
@@ -634,27 +638,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                       color: theme.colorScheme.onSurface,
                                       fontWeight: FontWeight.w600,
                                     ),
+                                    key: ValueKey(
+                                      'subfields_for_$_gender',
+                                    ), // Force rebuild of dropdown when items change
                                     initialValue: _nativity,
                                     decoration: _flatInputDecoration(
-                                      'Nativity',
+                                      'Niche',
                                       '',
-                                      Icons.location_on_rounded,
+                                      Icons.tag_rounded,
                                       theme,
                                     ),
-                                    items: List.generate(
-                                      nativityOptions.length,
-                                      (index) => DropdownMenuItem(
-                                        value: index,
-                                        child: Text(
-                                          getNativityName(index),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ),
+                                    items: _getSubfieldItems(_gender),
                                     onChanged: (v) {
-                                      if (v != null) {
+                                      if (v != null)
                                         setState(() => _nativity = v);
-                                      }
                                     },
                                   ),
                                 ),
