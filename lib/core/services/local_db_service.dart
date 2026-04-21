@@ -1,9 +1,11 @@
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 
 import '../models/connection.dart';
+import '../models/message.dart';
 import '../models/user_profile.dart';
+import 'identity_service.dart';
 
 /// Local SQLite database service for offline-first storage.
 ///
@@ -11,9 +13,9 @@ import '../models/user_profile.dart';
 /// - `known_users`: profiles of peers we have seen via BLE.
 /// - `connections`: connection records between offline identities.
 class LocalDbService extends GetxService {
-  static const _dbName = 'offline_connect.db';
+  static const _dbName = 'offline_connect_secure.db';
   static const _dbVersion =
-      5; // v2: UNIQUE + index, v3: bio, v4: photo_url, v5: avatar_id
+      7; // v2: UNIQUE + index, v3: bio, v4: photo_url, v5: avatar_id, v6: destiny_matches, v7: messages
 
   Database? _db;
 
@@ -32,8 +34,11 @@ class LocalDbService extends GetxService {
     final dir = await getApplicationDocumentsDirectory();
     final path = '${dir.path}/$_dbName';
 
+    final encryptionKey = Get.find<IdentityService>().dbEncryptionKey;
+
     return openDatabase(
       path,
+      password: encryptionKey,
       version: _dbVersion,
       onCreate: (db, version) async {
         await db.execute('''
@@ -63,6 +68,31 @@ class LocalDbService extends GetxService {
         await db.execute('''
           CREATE INDEX idx_connections_other
           ON connections(other_offline_id)
+        ''');
+
+        await db.execute('''
+          CREATE TABLE destiny_matches (
+            offline_id TEXT PRIMARY KEY,
+            match_score REAL NOT NULL,
+            synced_at TEXT NOT NULL
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE messages (
+            id TEXT PRIMARY KEY,
+            conversation_id TEXT NOT NULL,
+            sender_id TEXT NOT NULL,
+            text TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            read_at TEXT,
+            status TEXT NOT NULL
+          )
+        ''');
+
+        await db.execute('''
+          CREATE INDEX idx_messages_conv 
+          ON messages(conversation_id, created_at)
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
@@ -104,6 +134,32 @@ class LocalDbService extends GetxService {
           await db.execute(
             'ALTER TABLE known_users ADD COLUMN avatar_id INTEGER DEFAULT 0',
           );
+        }
+        if (oldVersion < 6) {
+          await db.execute('''
+            CREATE TABLE destiny_matches (
+              offline_id TEXT PRIMARY KEY,
+              match_score REAL NOT NULL,
+              synced_at TEXT NOT NULL
+            )
+          ''');
+        }
+        if (oldVersion < 7) {
+          await db.execute('''
+            CREATE TABLE messages (
+              id TEXT PRIMARY KEY,
+              conversation_id TEXT NOT NULL,
+              sender_id TEXT NOT NULL,
+              text TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              read_at TEXT,
+              status TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE INDEX idx_messages_conv 
+            ON messages(conversation_id, created_at)
+          ''');
         }
       },
     );
@@ -292,6 +348,115 @@ class LocalDbService extends GetxService {
     return null;
   }
 
+  // ──────────────────── Destiny Matches ────────────────────
+
+  /// Saves a list of IDs strictly found via cloud >90% calculation.
+  Future<void> saveDestinyMatches(Map<String, double> matches) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+
+    await db.transaction((txn) async {
+      for (final entry in matches.entries) {
+        final offlineId = _canonicalPeerId(entry.key);
+        await txn.insert('destiny_matches', {
+          'offline_id': offlineId,
+          'match_score': entry.value,
+          'synced_at': now,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    });
+  }
+
+  /// Checks if a given BLE hash/offline ID is a cached Destiny match.
+  Future<bool> isDestinyMatch(String id) async {
+    final db = await database;
+    final canonicalId = _canonicalPeerId(id);
+    final results = await db.query(
+      'destiny_matches',
+      where: 'offline_id = ?',
+      whereArgs: [canonicalId],
+      limit: 1,
+    );
+    return results.isNotEmpty;
+  }
+
+  /// Returns the match score if they exist, otherwise null
+  Future<double?> getDestinyMatchScore(String id) async {
+    final db = await database;
+    final canonicalId = _canonicalPeerId(id);
+    final results = await db.query(
+      'destiny_matches',
+      columns: ['match_score'],
+      where: 'offline_id = ?',
+      whereArgs: [canonicalId],
+      limit: 1,
+    );
+    if (results.isEmpty) return null;
+    return results.first['match_score'] as double?;
+  }
+
+  /// Retrieves all cached destiny IDs
+  Future<List<String>> getAllDestinyMatchIds() async {
+    final db = await database;
+    final results = await db.query('destiny_matches', columns: ['offline_id']);
+    return results.map((row) => row['offline_id'] as String).toList();
+  }
+
+  // ──────────────────── Messages (Ghost Queue) ────────────────────
+
+  /// Inserts a chat message directly to local database for instant offline UI.
+  Future<void> insertMessage(String conversationId, Message message) async {
+    final db = await database;
+    final map = message.toMap(conversationId);
+    if (!map.containsKey('id') || map['id'] == null) {
+      map['id'] = DateTime.now().millisecondsSinceEpoch.toString();
+    }
+    await db.insert(
+      'messages',
+      map,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Updates the status of a specific message in the local database.
+  Future<void> updateMessageStatus(String messageId, String status) async {
+    final db = await database;
+    await db.update(
+      'messages',
+      {'status': status},
+      where: 'id = ?',
+      whereArgs: [messageId],
+    );
+  }
+
+  /// Retrieves all messages for a specific conversation, ordered by creation time.
+  Future<List<Message>> getMessages(String conversationId) async {
+    final db = await database;
+    final rows = await db.query(
+      'messages',
+      where: 'conversation_id = ?',
+      whereArgs: [conversationId],
+      orderBy: 'created_at ASC',
+    );
+    return rows.map((r) => Message.fromMap(r)).toList();
+  }
+
+  /// Retrieves the latest message across all conversations, or for a specific one.
+  Future<Message?> getLastMessage(String conversationId) async {
+    final db = await database;
+    final rows = await db.query(
+      'messages',
+      where: 'conversation_id = ?',
+      whereArgs: [conversationId],
+      orderBy: 'created_at DESC',
+      limit: 1,
+    );
+    if (rows.isNotEmpty) {
+      return Message.fromMap(rows.first);
+    }
+    return null;
+  }
+
   // ── Lifecycle ────────────────────────────────────────
 
   @override
@@ -299,5 +464,14 @@ class LocalDbService extends GetxService {
     _db?.close();
     _db = null;
     super.onClose();
+  }
+
+  /// Wipes all local data.
+  Future<void> wipeDatabase() async {
+    final db = await database;
+    await db.delete('connections');
+    await db.delete('known_users');
+    await db.delete('messages');
+    await db.delete('destiny_matches');
   }
 }

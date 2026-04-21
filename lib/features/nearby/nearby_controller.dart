@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -884,6 +885,137 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     } catch (_) {
       // Controller may not be registered yet.
     }
+  }
+
+  // ── Blocklist & Moderation ────────────────────────────────────────────────
+
+  /// Set of strictly blocked user hashes (fetched from SQLite).
+  /// These users are immediately dropped from [_buffer] and never show on radar.
+  final RxSet<String> _blockedHashes = <String>{}.obs;
+
+  /// Expose method for ChatController to add to blocklist instantly.
+  void addBlockedUser(String offlineId) {
+    final hash = _canonicalHash(offlineId);
+    _blockedHashes.add(hash);
+    _peerConnectionStatus[hash] = ConnectionStatus.blocked;
+
+    // Prune actively from buffers and view
+    users.removeWhere((p) => _canonicalHash(p.myHash) == hash);
+    Get.log(
+      'NearbyController: Instantly dropped blocked user $hash from radar.',
+    );
+  }
+
+  /// Direct UI hook for blocking users from the radar screen
+  void blockUser(String offlineId) {
+    addBlockedUser(offlineId);
+    Get.snackbar(
+      'User Blocked',
+      'They have been removed from your radar.',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Colors.redAccent,
+      colorText: Colors.white,
+    );
+  }
+
+  /// Direct UI hook for reporting users from the radar screen
+  void reportUser(String offlineId) {
+    Get.log('Reported $offlineId from radar');
+    blockUser(offlineId);
+  }
+
+  // ── Broadcast & Destiny ────────────────────────────────────────────────────
+
+  /// Refreshes the BLE broadcast payload to reflect updated profile or state.
+  void refreshBroadcast() {
+    if (scanning.value) {
+      _ble.stopScanning();
+      _ble.startScanning();
+    }
+  }
+
+  /// Checks if a peer matches the user's Destiny settings
+  bool isDestinyMatch(String targetHash) {
+    // Destiny feature logic placeholder
+    return false;
+  }
+
+  /// Force a Destiny match for demo/QA purposes
+  void forceDestinyMatchAndAlert(String targetHash) {
+    // Destiny alert logic placeholder
+  }
+
+  // ── Chaos QA Mock Environment ──────────────────────────────────────────
+
+  /// Injects [count] fake users into the buffer to simulate a crowded room.
+  void injectMockPeers(int count) {
+    final random = Random();
+    final chars = '0123456789abcdef';
+
+    for (var i = 0; i < count; i++) {
+      final fakeId = List.generate(
+        10,
+        (index) => chars[random.nextInt(16)],
+      ).join();
+
+      final peer = DiscoveredPeer(
+        deviceId: 'QA_$fakeId',
+        myHash: fakeId,
+        avatarId: random.nextInt(256),
+        topWearColor: random.nextInt(16),
+        bottomWearColor: random.nextInt(16),
+        gender: random.nextInt(8),
+        nativity: random.nextInt(32),
+        intent: BleIntent.presence,
+        rssi: -40 - random.nextInt(56), // Fluctuates between -40 and -95
+        lastSeen: DateTime.now(),
+      );
+
+      _onPeerDiscovered(peer); // Feed straight into the routing buffer
+    }
+
+    Get.snackbar(
+      'Chaos Engine',
+      'Injected $count fake users into radar buffer.',
+      backgroundColor: Colors.amber,
+      colorText: Colors.black,
+      snackPosition: SnackPosition.BOTTOM,
+    );
+  }
+
+  /// Injects a perfectly synthesized 3-byte blink request targeting me.
+  void injectMockBlink() {
+    final random = Random();
+    final chars = '0123456789abcdef';
+    final fakeId = List.generate(10, (_) => chars[random.nextInt(16)]).join();
+
+    // The Blink Protocol: 0xFF + SenderHash[0] + TargetHash[0]
+    final targetHash0 = _canonicalHash(myHash)[0];
+
+    final peer = DiscoveredPeer(
+      deviceId: 'Blink_$fakeId',
+      myHash: fakeId,
+      avatarId: 0,
+      topWearColor: 0,
+      bottomWearColor: 0,
+      gender: 0,
+      nativity: 0,
+      intent: BleIntent.requestConnection,
+      targetHash:
+          '$targetHash0${chars[random.nextInt(16)]}', // Hijacks 1st byte routing
+      rssi: -45, // Strong signal to force priority
+      lastSeen: DateTime.now(),
+    );
+
+    _onPeerDiscovered(peer);
+
+    Get.snackbar(
+      'Chaos Engine',
+      'Injected mock Blink Request from $fakeId.',
+      backgroundColor: Colors.amber,
+      colorText: Colors.black,
+      snackPosition: SnackPosition.BOTTOM,
+    );
   }
 
   // ── Lifecycle ───────────────────────────────────────────────────────────

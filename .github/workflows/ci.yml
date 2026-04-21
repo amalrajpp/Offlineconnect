@@ -1,0 +1,52 @@
+name: Offline Connect CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build_and_test:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+        continue-on-error: true
+
+      - name: Analyze project source
+        run: flutter analyze
+
+      - name: Run Unit & Service Integration Tests
+        run: flutter test
+
+      # Build Android APK for QA
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      # (Optional) Deploy to Firebase App Distribution
+      # - name: Deploy to Firebase App Distribution
+      #   uses: wzieba/Firebase-Distribution-Github-Action@v1
+      #   with:
+      #     appId: ${{ secrets.FIREBASE_APP_ID }}
+      #     token: ${{ secrets.FIREBASE_TOKEN }}
+      #     groups: testers
+      #     file: build/app/outputs/flutter-apk/app-release.apk

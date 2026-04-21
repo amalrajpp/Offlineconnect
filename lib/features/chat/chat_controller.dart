@@ -1,13 +1,16 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../core/models/connection.dart';
 import '../../core/models/message.dart';
 import '../../core/models/user_profile.dart';
 import '../../core/services/firebase_sync_service.dart';
 import '../../core/services/identity_service.dart';
 import '../../core/services/local_db_service.dart';
+import '../nearby/nearby_controller.dart';
 
 /// Manages a single chat conversation with real-time Firestore updates.
 ///
@@ -292,6 +295,73 @@ class ChatController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
     }
+  }
+
+  /// Initiates the Block Protocol: Local + Cloud Mute
+  Future<void> blockUser() async {
+    // 1. Local SQLite Wipe
+    final db = await Get.find<LocalDbService>().database;
+    await db.update(
+      'connections',
+      {'status': ConnectionStatus.blocked.index},
+      where: 'other_offline_id = ?',
+      whereArgs: [otherOfflineId],
+    );
+    await db.delete(
+      'messages',
+      where: 'conversation_id = ?',
+      whereArgs: [_activeConversationId],
+    );
+
+    messages.clear();
+
+    // 2. The Cloud Ban
+    await _firebase.blockUser(otherOfflineId);
+
+    // 3. The Radar Mute - Notify NearbyController
+    Get.find<NearbyController>().addBlockedUser(otherOfflineId);
+
+    Get.snackbar(
+      'User Blocked',
+      'This user has been blocked. Their messages have been removed and they can no longer reach you.',
+      backgroundColor: Colors.redAccent,
+      colorText: Colors.white,
+      snackPosition: SnackPosition.BOTTOM,
+    );
+
+    // Exit chat
+    Get.back();
+  }
+
+  /// Initiates the Report Protocol: The Audit Trail
+  Future<void> reportUser(String reason) async {
+    // 1. Gather the last 50 messages
+    final db = await Get.find<LocalDbService>().database;
+    final rows = await db.query(
+      'messages',
+      where: 'conversation_id = ?',
+      whereArgs: [_activeConversationId],
+      orderBy: 'created_at DESC',
+      limit: 50,
+    );
+
+    final recentMessages = rows.map((r) => Message.fromMap(r)).toList();
+
+    // 2. The Firestore Drop
+    await _firebase.reportUser(
+      reportedId: otherOfflineId,
+      reason: reason,
+      messages: recentMessages,
+    );
+
+    Get.snackbar(
+      'Report Submitted',
+      'Thank you for reporting. Our moderation team will review this within 24 hours.',
+      snackPosition: SnackPosition.BOTTOM,
+    );
+
+    // 3. The Auto-Block
+    await blockUser();
   }
 
   @override

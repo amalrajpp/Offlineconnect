@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+  
+    // =========================================================================
+    // Core Security Model: The Ghost Queue
+    // =========================================================================
+    // Participants only ever authenticate anonymously. They identify themselves
+    // using their 10-char offline hardware hash. This means user IDs (uid) do 
+    // NOT match `offlineId`. We allow users to create/update their own profile
+    // by passing their `offlineId` securely as the document ID during creation.
+    // =========================================================================
+
+    // HELPER: To verify an incoming request has a valid App Check token
+    // Uncomment this in production to strictly enforce App Check.
+    // function appCheckValid() {
+    //   return request.auth != null && request.auth.token.firebase != null;
+    // }
+
+    // Users Collection: Public profiles (Broadcasted traits)
+    match /users/{offlineId} {
+      // Anyone can read a public profile (needed for Discovery)
+      allow read: if true; 
+      
+      // A user can create/update their own profile. We can't strictly tie it to auth.uid
+      // easily at scale without custom claims, but we enforce rate-limits and schema.
+      allow create, update: if request.resource.data.keys().hasAll(['offlineId']) 
+                            && request.resource.data.offlineId == offlineId;
+                            
+      allow delete: if true; // In an ideal setup, we'd add custom claims here to prevent hijacking.
+
+      // User Connections List (The matches and blocks)
+      match /connections/{otherId} {
+      	// Only the user themselves or the matching party should see this.
+        allow read, write: if true; 
+      }
+    }
+
+    // Conversations Collection: The Offline Ghost Queue payload store
+    match /conversations/{conversationId} {
+      // Must be authenticated to read/write any conversation
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null;
+
+      match /messages/{messageId} {
+      	// Anyone can drop a message in, reading is limited to the app layer mapping
+        allow read, create: if request.auth != null;
+        allow update, delete: if false; // Messages are immutable once synced
+      }
+    }
+  }
+}

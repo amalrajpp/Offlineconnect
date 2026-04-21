@@ -11,6 +11,7 @@ import '../models/connection.dart';
 import '../models/message.dart';
 import '../models/offline_identity.dart';
 import '../models/user_profile.dart';
+import 'identity_service.dart';
 
 /// Syncs offline data to Firebase when the device is online.
 ///
@@ -686,6 +687,65 @@ class FirebaseSyncService extends GetxService {
       });
     } catch (e) {
       // Ignore — not critical.
+    }
+  }
+
+  /// The Cloud Ban: Blocks a user in Firestore
+  Future<void> blockUser(String peerId) async {
+    final firestore = _firestore;
+    if (firestore == null) return;
+    try {
+      final user = _auth?.currentUser;
+      if (user == null) return;
+      final myOfflineId = Get.find<IdentityService>().identity.offlineId;
+      await firestore
+          .collection('users')
+          .doc(myOfflineId)
+          .collection('blocked')
+          .doc(peerId)
+          .set({'timestamp': FieldValue.serverTimestamp()});
+    } catch (e) {
+      Get.log('FirebaseSyncService: blockUser failed - $e');
+    }
+  }
+
+  /// The Firestore Drop: Reports a user for moderation
+  Future<void> reportUser({
+    required String reportedId,
+    required String reason,
+    required List<Message> messages,
+  }) async {
+    final firestore = _firestore;
+    if (firestore == null) return;
+    try {
+      final reporterId = Get.find<IdentityService>().identity.offlineId;
+      final payload = {
+        'reporter_id': reporterId,
+        'reported_id': reportedId,
+        'reason': reason,
+        'timestamp': FieldValue.serverTimestamp(),
+        'message_history': messages.map((m) => m.toMap("")).toList(),
+      };
+      await firestore.collection('reports').add(payload);
+    } catch (e) {
+      Get.log('FirebaseSyncService: reportUser failed - $e');
+    }
+  }
+
+  /// The Account Deletion Protocol: Permanently erases user data from the cloud
+  Future<void> deleteAccount(String offlineId) async {
+    final firestore = _firestore;
+    if (firestore == null) return;
+    try {
+      final user = _auth?.currentUser;
+
+      // 1. Delete Firestore User Document
+      await firestore.collection('users').doc(offlineId).delete();
+
+      // 2. Delete Authentication Data
+      await user?.delete();
+    } catch (e) {
+      Get.log('FirebaseSyncService: deleteAccount failed - $e');
     }
   }
 }

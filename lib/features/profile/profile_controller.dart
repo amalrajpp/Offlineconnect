@@ -7,6 +7,7 @@ import '../../core/models/user_profile.dart';
 import '../../core/services/firebase_sync_service.dart';
 import '../../core/services/identity_service.dart';
 import '../../core/services/local_db_service.dart';
+import '../nearby/nearby_controller.dart';
 
 /// Manages the user's own profile — display name, bio, and photo.
 ///
@@ -17,6 +18,9 @@ class ProfileController extends GetxController {
   final LocalDbService _db = Get.find<LocalDbService>();
   final FirebaseSyncService _firebase = Get.find<FirebaseSyncService>();
   final ImagePicker _imagePicker = ImagePicker();
+
+  /// EULA Agreement required for UGC compliance.
+  final RxBool hasAcceptedEULA = false.obs;
 
   /// The user's own profile. Observable so the UI updates reactively.
   final Rx<UserProfile?> profile = Rx<UserProfile?>(null);
@@ -68,6 +72,40 @@ class ProfileController extends GetxController {
     String? bio,
     String? photoUrl,
   }) async {
+    if (!hasAcceptedEULA.value) {
+      Get.snackbar(
+        'EULA Required',
+        'You must agree to the End User License Agreement to continue.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+    // ── BITWISE FIREWALL ASSERTIONS ─────────────────────────────────────────
+    // These guarantee our integers never exceed the bit-length we allocate
+    // in the manufacturer data payload. If they do, the payload will silently
+    // overflow or corrupt, destroying the mesh visibility logic.
+    assert(
+      avatarId >= 0 && avatarId <= 255,
+      'Avatar ID overflow - must fit 8 bits (0-255)',
+    );
+    assert(
+      topWearColor >= 0 && topWearColor <= 15,
+      'Top color overflow - must fit 4 bits (0-15)',
+    );
+    assert(
+      bottomWearColor >= 0 && bottomWearColor <= 15,
+      'Bottom color overflow - must fit 4 bits (0-15)',
+    );
+    assert(
+      gender >= 0 && gender <= 7,
+      'Gender overflow - must fit 3 bits (0-7)',
+    );
+    assert(
+      nativity >= 0 && nativity <= 31,
+      'Nativity overflow - must fit 5 bits (0-31)',
+    );
+    // ────────────────────────────────────────────────────────────────────────
+
     final trimmedName = displayName.trim();
     final trimmedUsername = username.trim();
     if (trimmedName.isEmpty || trimmedName.length > 30) return;
@@ -96,6 +134,12 @@ class ProfileController extends GetxController {
 
     // Sync to Firestore in the background (fire-and-forget).
     _firebase.syncProfile(newProfile);
+
+    // If currently broadcasting our presence via BLE, refresh it silently
+    // so peers instantly pick up our latest clothing or avatar traits.
+    if (Get.isRegistered<NearbyController>()) {
+      Get.find<NearbyController>().refreshBroadcast();
+    }
   }
 
   /// Picks a photo from the gallery and uploads it to Firebase Storage.

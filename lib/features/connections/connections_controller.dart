@@ -99,7 +99,9 @@ class ConnectionsController extends GetxController {
       }
       connectionsMadeToday.value = countToday;
 
-      final filtered = await _hidePeersAlreadyInChats(all);
+      final filtered = await _hidePeersAlreadyInChats(
+        all.where((c) => c.status != ConnectionStatus.blocked).toList(),
+      );
       connections.assignAll(filtered);
     } catch (e) {
       Get.log('ConnectionsController: loadConnections failed – $e');

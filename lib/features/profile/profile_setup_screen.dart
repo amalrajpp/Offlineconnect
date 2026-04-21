@@ -91,10 +91,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       len,
       (idx) => DropdownMenuItem(
         value: idx,
-        child: Text(
-          getNativityName(idx),
-          overflow: TextOverflow.ellipsis,
-        ),
+        child: Text(getNativityName(idx), overflow: TextOverflow.ellipsis),
       ),
     );
     _subfieldItemsCache[fieldIndex] = items;
@@ -468,10 +465,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 theme,
                               ),
                               validator: (value) {
-                                if (value == null || value.trim().isEmpty)
+                                if (value == null || value.trim().isEmpty) {
                                   return 'Required for offline discovery';
-                                if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value))
+                                }
+                                if (!RegExp(
+                                  r'^[a-zA-Z0-9_]+$',
+                                ).hasMatch(value)) {
                                   return 'Only letters, numbers, and underscores';
+                                }
                                 return null;
                               },
                             ),
@@ -491,10 +492,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 theme,
                               ),
                               validator: (value) {
-                                if (value == null || value.trim().isEmpty)
+                                if (value == null || value.trim().isEmpty) {
                                   return 'Please enter a display name';
-                                if (value.trim().length < 2)
+                                }
+                                if (value.trim().length < 2) {
                                   return 'Name must be at least 2 characters';
+                                }
                                 return null;
                               },
                             ),
@@ -650,8 +653,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                     ),
                                     items: _getSubfieldItems(_gender),
                                     onChanged: (v) {
-                                      if (v != null)
+                                      if (v != null) {
                                         setState(() => _nativity = v);
+                                      }
                                     },
                                   ),
                                 ),

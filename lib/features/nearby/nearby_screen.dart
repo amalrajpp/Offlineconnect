@@ -46,7 +46,7 @@ class _NearbyScreenState extends State<NearbyScreen>
 
     _initialMatrix = Matrix4.identity()
       ..setTranslationRaw(tx, ty, 0.0)
-      ..scale(scale, scale, 1.0);
+      ..scaleByDouble(scale, scale, 1.0, 1.0);
 
     _viewController.value = _initialMatrix;
   }

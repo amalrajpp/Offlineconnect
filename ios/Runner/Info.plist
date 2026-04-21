@@ -46,19 +46,32 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 
-	<!-- BLE Permissions -->
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Offline Connect uses Bluetooth to discover and connect with nearby people.</string>
-	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Offline Connect uses Bluetooth to let nearby people discover you.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Location is required for Bluetooth scanning to discover nearby people.</string>
+        <!-- BLE Permissions -->
+        <key>NSBluetoothAlwaysUsageDescription</key>
+        <string>Offline Connect uses Bluetooth to anonymously discover nearby peers and establish offline messaging connections without tracking your geographic location.</string>
+        <key>NSBluetoothPeripheralUsageDescription</key>
+        <string>Offline Connect uses Bluetooth to anonymously advertise your presence to nearby peers so you can chat entirely offline.</string>
 
-	<!-- Background BLE -->
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>bluetooth-central</string>
-		<string>bluetooth-peripheral</string>
-	</array>
+        <!-- Wi-Fi Direct / Local Network for Broadband Bridge -->
+        <key>NSLocalNetworkUsageDescription</key>
+        <string>Offline Connect requires access to your local network to establish high-speed offline peer-to-peer messaging (Wi-Fi Direct) with users you choose to interact with.</string>
+        <key>NSBonjourServices</key>
+        <array>
+                <string>_googlecast._tcp</string>
+                <string>_nearby._tcp</string>
+        </array>
+
+        <!-- Profile Photo Permissions -->
+        <key>NSCameraUsageDescription</key>
+        <string>Offline Connect requires camera access so you can take a profile picture to represent your physical offline identity.</string>
+        <key>NSPhotoLibraryUsageDescription</key>
+        <string>Offline Connect requires access to your photo library so you can select a profile picture to represent your physical offline identity.</string>
+
+        <!-- Background BLE Modes -->
+        <key>UIBackgroundModes</key>
+        <array>
+                <string>bluetooth-central</string>
+                <string>bluetooth-peripheral</string>
+        </array>
 </dict>
 </plist>

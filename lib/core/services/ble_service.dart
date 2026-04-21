@@ -7,9 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 import '../models/ble_models.dart';
 import '../models/offline_identity.dart';
+import 'identity_service.dart';
 
 /// The Zero-GATT Connectionless Handshake Engine.
 ///
@@ -36,7 +38,7 @@ class BleService extends GetxService {
 
   /// Platform channel for native BLE advertising (peripheral mode).
   static const MethodChannel _advertChannel = MethodChannel(
-    'com.offlineconnect/ble_advertiser',
+    'com.redstring/ble_advertiser',
   );
 
   // ── Streams ─────────────────────────────────────────────────────────────
@@ -104,26 +106,32 @@ class BleService extends GetxService {
   Future<bool> requestPermissions() async {
     try {
       if (Platform.isAndroid) {
-        // Android 12+ requires explicit BLE permissions
-        final scan = await Permission.bluetoothScan.request();
-        final connect = await Permission.bluetoothConnect.request();
-        final advertise = await Permission.bluetoothAdvertise.request();
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
 
-        if (!scan.isGranted || !connect.isGranted || !advertise.isGranted) {
-          return false;
-        }
+        if (androidInfo.version.sdkInt >= 31) {
+          // Android 12+: Only need Bluetooth (Nearby Devices) permissions
+          final scan = await Permission.bluetoothScan.request();
+          final connect = await Permission.bluetoothConnect.request();
+          final advertise = await Permission.bluetoothAdvertise.request();
 
-        // Location is needed for BLE scanning on older Androids
-        final location = await Permission.locationWhenInUse.request();
-        if (!location.isGranted) return false;
+          if (!scan.isGranted || !connect.isGranted || !advertise.isGranted) {
+            return false;
+          }
+        } else {
+          // Android 11 and below: Need Location + legacy Bluetooth
+          final location = await Permission.locationWhenInUse.request();
+          final ble = await Permission.bluetooth.request();
+          if (!location.isGranted || !ble.isGranted) {
+            return false;
+          }
 
-        // On many Android devices, BLE discovery also requires
-        // Location services (device-level toggle) to be enabled.
-        final locationService =
-            await Permission.locationWhenInUse.serviceStatus;
-        if (!locationService.isEnabled) {
-          Get.log('BleService: location services are disabled.');
-          return false;
+          // On older Androids, Location services (device-level toggle) must be enabled
+          final locationService =
+              await Permission.locationWhenInUse.serviceStatus;
+          if (!locationService.isEnabled) {
+            Get.log('BleService: location services are disabled.');
+            return false;
+          }
         }
       } else if (Platform.isIOS) {
         final ble = await Permission.bluetooth.request();
@@ -152,6 +160,10 @@ class BleService extends GetxService {
   Future<bool> isLocationServiceEnabled() async {
     if (!Platform.isAndroid) return true;
     try {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      if (androidInfo.version.sdkInt >= 31) {
+        return true; // Modern Android does not require device-level location for BLE
+      }
       final status = await Permission.locationWhenInUse.serviceStatus;
       return status.isEnabled;
     } catch (e) {
@@ -216,6 +228,69 @@ class BleService extends GetxService {
     } on MissingPluginException {
       // Silently ignore.
     } catch (_) {}
+  }
+
+  // ── Blink Protocol (Adaptive Hz Connection Pipeline) ────────────────────
+
+  /// Generates the 3-byte command payload for handshakes.
+  Uint8List packBlinkPayload({
+    required String myOfflineId,
+    required String targetOfflineId,
+    required bool isAccepting,
+  }) {
+    final buffer = ByteData(3);
+
+    // Byte 0: The Command Flag (0xFF = Request, 0xEE = Accept)
+    buffer.setUint8(0, isAccepting ? 0xEE : 0xFF);
+
+    // Byte 1: Sender ID (first byte of hash)
+    buffer.setUint8(1, _hexToBytes(myOfflineId).first);
+
+    // Byte 2: Target ID (first byte of their hash)
+    buffer.setUint8(2, _hexToBytes(targetOfflineId).first);
+
+    return buffer.buffer.asUint8List();
+  }
+
+  /// Hijacks the passive 1Hz visual broadcast and fires a 10Hz Blink Payload
+  /// for 3 seconds to guarantee a handshake reaches the target in crowded rooms.
+  Future<void> executeBlinkHandshake(
+    OfflineIdentity identity,
+    String targetId,
+    bool isAccepting,
+  ) async {
+    // 1. Stop the passive 1Hz visual broadcast
+    await stopBroadcasting();
+
+    // 2. Generate the Command Payload
+    final blinkPayload = packBlinkPayload(
+      myOfflineId: identity.offlineId,
+      targetOfflineId: targetId,
+      isAccepting: isAccepting,
+    );
+
+    // 3. Start Aggressive Advertising (Low Latency / 10Hz)
+    try {
+      await _advertChannel.invokeMethod('startAdvertisingRaw', {
+        'manufacturerId': _manufacturerId,
+        'payload': blinkPayload,
+        'lowLatency': true, // Adaptive Hz boost
+      });
+    } on MissingPluginException {
+      await _advertChannel.invokeMethod('startAdvertising', {
+        'manufacturerId': _manufacturerId,
+        'payload': blinkPayload,
+      });
+    } catch (e) {
+      Get.log('BleService: executeBlinkHandshake failed to start - $e');
+    }
+
+    // 4. Hold the Blink for exactly 3 seconds
+    await Future.delayed(const Duration(seconds: 3));
+
+    // 5. Tear down the aggressive broadcast and return to normal presence
+    await stopBroadcasting();
+    await broadcastState(identity, BleIntent.presence);
   }
 
   // ── Scanning ────────────────────────────────────────────────────────────
@@ -296,6 +371,15 @@ class BleService extends GetxService {
 
   // ── Internal helpers ────────────────────────────────────────────────────
 
+  @visibleForTesting
+  Uint8List buildPayloadTest(
+    OfflineIdentity identity,
+    BleIntent intent,
+    String? targetHash,
+  ) {
+    return _buildPayload(identity, intent, targetHash);
+  }
+
   /// Builds the 27-byte manufacturer data payload.
   Uint8List _buildPayload(
     OfflineIdentity identity,
@@ -332,10 +416,10 @@ class BleService extends GetxService {
         ((identity.topWearColor & 0x0F) << 4) |
         (identity.bottomWearColor & 0x0F);
 
-    // Byte 16 - Bio Bitfield (Field | Subfield)
-    data[16] = ((identity.gender & 0x0F) << 4) | (identity.nativity & 0x0F);
-
-    // Bytes 17-26 – sender username
+    // Byte 16 - Bio Bitfield (Gender | Nativity)
+    data[16] =
+        ((identity.gender & 0x07) << 5) |
+        (identity.nativity & 0x1F); // Bytes 17-26 – sender username
     final nameBytes = utf8.encode(identity.username);
     for (var i = 0; i < 10; i++) {
       data[17 + i] = i < nameBytes.length ? nameBytes[i] : 0;
@@ -351,8 +435,7 @@ class BleService extends GetxService {
       iosData[4] =
           ((identity.topWearColor & 0x0F) << 4) |
           (identity.bottomWearColor & 0x0F);
-      iosData[5] =
-          ((identity.gender & 0x0F) << 4) | (identity.nativity & 0x0F);
+      iosData[5] = ((identity.gender & 0x07) << 5) | (identity.nativity & 0x1F);
       for (var i = 0; i < 5; i++) {
         iosData[6 + i] = i < myBytes.length ? myBytes[i] : 0;
       }
@@ -430,8 +513,46 @@ class BleService extends GetxService {
       }
     }
 
-    // Minimum viable payload: 16 bytes (iOS UUID) or 27 bytes (Android full).
-    if (raw == null) return null;
+    // Minimum viable payload: 3 bytes (Blink), 16 bytes (iOS UUID), or 27 bytes (Android full).
+    if (raw == null || raw.length < 3) return null;
+
+    // ── The Scanner Intercept (The Shield) ───────────────────────────────
+    // Intercept 3-byte command packets before they crash the visual parser
+    if (raw[0] == 0xFF || raw[0] == 0xEE) {
+      if (raw.length >= 3) {
+        int myFirstByte = _hexToBytes(
+          Get.find<IdentityService>().identity.offlineId,
+        ).first;
+        if (raw[2] == myFirstByte) {
+          // It's targeted at me! Format it as a blink request
+          final intent = raw[0] == 0xFF
+              ? BleIntent.requestConnection
+              : BleIntent.acceptConnection;
+          // The blink sender hash will just be a 1-byte proxy. Our app matches
+          // to known users by this proxy prefix if not exact.
+          final senderProxyHash = _bytesToHex([raw[1]]);
+
+          // Note: We bypass normal avatar/bio rendering.
+          return DiscoveredPeer(
+            deviceId: result.device.remoteId.str,
+            myHash:
+                senderProxyHash, // This will be matched to the full 6-byte hash locally in NearbyController
+            targetHash: Get.find<IdentityService>().identity.offlineId,
+            offlineUsername: null,
+            avatarId: 0,
+            topWearColor: 0,
+            bottomWearColor: 0,
+            gender: 0,
+            nativity: 0,
+            intent: intent,
+            rssi: result.rssi,
+            lastSeen: result.timeStamp,
+          );
+        }
+      }
+      return null;
+    }
+
     if (raw.length < 16) {
       debugPrint('BLE_DEBUG: Dropping because too short: ${raw.length}');
       return null;
@@ -486,8 +607,8 @@ class BleService extends GetxService {
     final hasTarget = targetBytes.any((b) => b != 0);
     final targetHash = hasTarget ? _bytesToHex(targetBytes) : null;
 
-    final gender = (bioBits >> 4) & 0x0F;
-    final nativity = bioBits & 0x0F;
+    final gender = (bioBits >> 5) & 0x07;
+    final nativity = bioBits & 0x1F;
 
     String? offlineUsername;
     if (raw.length >= 27) {
@@ -510,7 +631,7 @@ class BleService extends GetxService {
       nativity: nativity,
       intent: intent,
       rssi: result.rssi,
-      lastSeen: DateTime.now(),
+      lastSeen: result.timeStamp,
     );
   }
 

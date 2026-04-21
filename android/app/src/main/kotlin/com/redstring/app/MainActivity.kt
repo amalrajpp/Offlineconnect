@@ -1,4 +1,4 @@
-package com.offlineconnect.offline_connect
+package com.redstring.app
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
@@ -31,7 +31,7 @@ class MainActivity : FlutterActivity() {
 
     companion object {
         private const val TAG = "BleAdvertiser"
-        private const val CHANNEL = "com.offlineconnect/ble_advertiser"
+        private const val CHANNEL = "com.redstring/ble_advertiser"
     }
 
     private var advertiser: BluetoothLeAdvertiser? = null
