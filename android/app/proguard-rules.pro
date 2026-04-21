@@ -14,3 +14,5 @@
 
 # FlutterBluePlus
 -keep class com.lib.flutter_blue_plus.** { *; }
+-keep class com.google.android.play.core.** { *; }
+-dontwarn com.google.android.play.core.**
