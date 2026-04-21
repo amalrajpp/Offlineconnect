@@ -19,7 +19,7 @@ import CoreBluetooth
 @main
 @objc class AppDelegate: FlutterAppDelegate {
 
-    private let channelName = "com.offlineconnect/ble_advertiser"
+    private let channelName = "com.redstring/ble_advertiser"
     private let serviceUUID = CBUUID(string: "0000FFF0-0000-1000-8000-00805F9B34FB")
 
     private var peripheralManager: CBPeripheralManager?
