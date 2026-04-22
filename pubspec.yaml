@@ -27,6 +27,7 @@ dependencies:
   sqflite_sqlcipher: ^3.4.0
   nearby_connections: ^4.3.0
   collection: ^1.19.1
+  sensors_plus: ^7.0.0
 
 dev_dependencies:
   flutter_test:

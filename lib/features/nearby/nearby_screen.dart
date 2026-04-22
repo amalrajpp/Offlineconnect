@@ -23,7 +23,10 @@ class _NearbyScreenState extends State<NearbyScreen>
     with TickerProviderStateMixin {
   late final AnimationController _radarController;
   late final AnimationController _recenterController;
+  late final AnimationController _windController;
+  late final AnimationController _shootController;
   late Animation<Matrix4> _recenterAnimation;
+  late final Worker _pendingWorker;
 
   final TransformationController _viewController = TransformationController();
   bool _viewInitialized = false;
@@ -80,12 +83,32 @@ class _NearbyScreenState extends State<NearbyScreen>
     _recenterController.addListener(() {
       _viewController.value = _recenterAnimation.value;
     });
+
+    _windController = AnimationController(
+       vsync: this,
+       duration: const Duration(seconds: 5),
+    )..repeat();
+
+    _shootController = AnimationController(
+       vsync: this,
+       duration: const Duration(milliseconds: 500),
+    );
+
+    final controller = Get.find<NearbyController>();
+    _pendingWorker = ever(controller.pendingRequestTarget, (target) {
+      if (target != null) {
+        _shootController.forward(from: 0.0);
+      }
+    });
   }
 
   @override
   void dispose() {
     _radarController.dispose();
     _recenterController.dispose();
+    _windController.dispose();
+    _shootController.dispose();
+    _pendingWorker.dispose();
     _viewController.dispose();
     super.dispose();
   }
@@ -376,6 +399,24 @@ class _NearbyScreenState extends State<NearbyScreen>
                               ),
                             ),
                           ),
+                        ),
+
+                        // X. The Red String of Fate
+                        AnimatedBuilder(
+                          animation: Listenable.merge([_windController, _shootController]),
+                          builder: (_, __) {
+                            return CustomPaint(
+                              painter: RedStringPainter(
+                                center: center,
+                                cachedPositions: _cachedPositions,
+                                users: controller.users.toList(),
+                                controller: controller,
+                                windProgress: _windController.value,
+                                shootProgress: _shootController.value,
+                                theme: theme,
+                              ),
+                            );
+                          },
                         ),
 
                         // 3. Floating Blips (Other Users) with Anti-Overlap Calculation
@@ -1140,3 +1181,104 @@ Widget _buildPositionedBlip(
     ),
   );
 }
+
+/// Draws an animated, fluttering Red String of Fate between you (center)
+/// and any connected (or pending) users.
+class RedStringPainter extends CustomPainter {
+  final Offset center;
+  final Map<String, Offset> cachedPositions;
+  final List<DiscoveredPeer> users;
+  final NearbyController controller;
+  final double windProgress;
+  final double shootProgress;
+  final ThemeData theme;
+
+  RedStringPainter({
+    required this.center,
+    required this.cachedPositions,
+    required this.users,
+    required this.controller,
+    required this.windProgress,
+    required this.shootProgress,
+    required this.theme,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paintGlow = Paint()
+      ..color = Colors.redAccent.withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6.0
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
+    final paintCore = Paint()
+      ..color = Colors.red
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+
+    for (final peer in users) {
+      final status = controller.connectionStatusForPeer(peer.myHash);
+
+      bool isConnected = status == ConnectionStatus.accepted;
+      bool isPending = status == ConnectionStatus.pendingOutgoing;
+
+      if (!isConnected && !isPending) continue;
+
+      final targetPos = cachedPositions[peer.myHash];
+      if (targetPos == null) continue;
+
+      final p0 = center;
+      final p3 = targetPos;
+
+      // Calculate vector from center to peer
+      double dx = p3.dx - p0.dx;
+      double dy = p3.dy - p0.dy;
+      double dist = math.sqrt(dx * dx + dy * dy);
+      if (dist < 1.0) continue;
+
+      // Normal vector (perpendicular)
+      double nx = -dy / dist;
+      double ny = dx / dist;
+
+      // Organic sway math
+      double sag = dist * 0.15; // Natural gravity/slack
+
+      // Wind flutter (composed of two sin waves for organic chaos)
+      double flutter1 = math.sin(windProgress * math.pi * 2 + peer.myHash.hashCode) * (dist * 0.06);
+      double flutter2 = math.cos(windProgress * math.pi * 4 - peer.myHash.hashCode) * (dist * 0.03);
+
+      double totalOffset = sag + flutter1 + flutter2;
+
+      // Control points for cubic bezier, shifted along the normal
+      final p1 = Offset(p0.dx + dx * 0.33 + nx * totalOffset, p0.dy + dy * 0.33 + ny * totalOffset);
+      final p2 = Offset(p0.dx + dx * 0.66 + nx * (totalOffset * 0.8), p0.dy + dy * 0.66 + ny * (totalOffset * 0.8));
+
+      final path = Path()
+        ..moveTo(p0.dx, p0.dy)
+        ..cubicTo(p1.dx, p1.dy, p2.dx, p2.dy, p3.dx, p3.dy);
+
+      Path pathToDraw = path;
+
+      // If pending, use shootProgress to extract partial path
+      if (isPending) {
+        final metrics = path.computeMetrics().toList();
+        if (metrics.isNotEmpty) {
+          final metric = metrics.first;
+          // Apply a fast ease-out effect to the shoot progress
+          final curveProgress = Curves.easeOutCubic.transform(shootProgress);
+          pathToDraw = metric.extractPath(0.0, metric.length * curveProgress);
+        }
+      }
+
+      // Draw string
+      canvas.drawPath(pathToDraw, paintGlow);
+      canvas.drawPath(pathToDraw, paintCore);
+    }
+  }
+
+  @override
+  bool shouldRepaint(RedStringPainter oldDelegate) => true;
+}
+
