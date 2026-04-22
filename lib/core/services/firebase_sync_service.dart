@@ -555,18 +555,19 @@ class FirebaseSyncService extends GetxService {
 
     try {
       final convRef = firestore.collection('conversations').doc(convId);
+      final msgRef = convRef.collection('messages').doc();
 
-      // Add message to subcollection.
-      await convRef.collection('messages').add(message.toFirestoreMap());
-
-      // Update conversation last message preview.
-      await convRef.update({
+      // Atomic batch: message + conversation preview update together.
+      final batch = firestore.batch();
+      batch.set(msgRef, message.toFirestoreMap());
+      batch.update(convRef, {
         'lastMessage': message.text.length > 100
             ? '${message.text.substring(0, 100)}…'
             : message.text,
         'lastMessageAt': FieldValue.serverTimestamp(),
         'lastMessageBy': message.senderId,
       });
+      await batch.commit();
       return true;
     } catch (e) {
       Get.log('FirebaseSyncService: sendMessage failed – $e');
@@ -584,6 +585,8 @@ class FirebaseSyncService extends GetxService {
         .collection('conversations')
         .doc(convId)
         .collection('messages')
+        .orderBy('createdAt')
+        .limitToLast(200)
         .snapshots();
   }
 

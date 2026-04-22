@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -64,6 +65,70 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
 
   /// The reason the session ended (for UI display).
   final RxString sessionEndReason = ''.obs;
+
+  // ── Session Cooldown ────────────────────────────────────────────────────
+  //
+  // After a session completes, enforce a 10-minute cooldown before the user
+  // can start a new session at the same place. This prevents spamming the
+  // "New Session" button to bypass per-session limits.
+
+  /// Duration the user must wait after a session completes.
+  static const Duration sessionCooldown = Duration(minutes: 10);
+
+  /// When the current cooldown expires (null if no cooldown active).
+  DateTime? _cooldownExpiresAt;
+
+  /// Ticking countdown string for the UI (e.g. "9:45").
+  final RxString cooldownRemaining = ''.obs;
+
+  /// Whether a cooldown is currently active.
+  bool get isCooldownActive =>
+      _cooldownExpiresAt != null &&
+      DateTime.now().isBefore(_cooldownExpiresAt!);
+
+  Timer? _cooldownTickTimer;
+
+  void _startCooldownTimer() {
+    _cooldownExpiresAt = DateTime.now().add(sessionCooldown);
+    _updateCooldownText();
+    _cooldownTickTimer?.cancel();
+    _cooldownTickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!isCooldownActive) {
+        _cooldownTickTimer?.cancel();
+        _cooldownTickTimer = null;
+        cooldownRemaining.value = '';
+        _cooldownExpiresAt = null;
+        return;
+      }
+      _updateCooldownText();
+    });
+  }
+
+  void _updateCooldownText() {
+    if (_cooldownExpiresAt == null) {
+      cooldownRemaining.value = '';
+      return;
+    }
+    final diff = _cooldownExpiresAt!.difference(DateTime.now());
+    if (diff.isNegative) {
+      cooldownRemaining.value = '';
+      return;
+    }
+    final m = diff.inMinutes;
+    final s = diff.inSeconds % 60;
+    cooldownRemaining.value = '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  // ── Non-Blocking Incoming Request Banner ─────────────────────────────────
+  //
+  // Instead of a modal dialog that blocks the entire UI, incoming requests
+  // are surfaced as an observable peer that the UI renders as a dismissible
+  // banner overlay on top of the radar. Users can accept/ignore without
+  // losing visibility of the radar.
+
+  /// The peer whose incoming request is currently shown in the banner.
+  /// Null when no banner is visible.
+  final Rx<DiscoveredPeer?> currentIncomingPeer = Rx<DiscoveredPeer?>(null);
 
   /// Whether the user can still send outgoing requests this session.
   bool get canSendRequest => sessionRequestsSent.value < maxRequestsPerSession
@@ -165,6 +230,12 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
   /// Grace-period timer for auto-completing the session after limits hit.
   Timer? _autoCompleteTimer;
 
+  /// Retry timer for re-broadcasting connection requests in crowded areas.
+  Timer? _requestRetryTimer;
+  int _requestRetryCount = 0;
+  static const int _maxRequestRetries = 3;
+  static const Duration _requestRetryInterval = Duration(seconds: 10);
+
   /// Tracks peers whose accept responses we have already handled.
   final Set<String> _handledAccepts = {};
 
@@ -231,9 +302,11 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
   // ── Peer listener with smart buffer logic (Fix #4 & #5) ────────────────
 
   void _onPeerDiscovered(DiscoveredPeer peer) {
-    Get.log(
-      'NEARBY_TRACE: Discovered ${peer.myHash} (intent=${peer.intent}, rssi=${peer.rssi})',
-    );
+    if (kDebugMode) {
+      Get.log(
+        'NEARBY_TRACE: Discovered ${peer.myHash} (intent=${peer.intent}, rssi=${peer.rssi})',
+      );
+    }
     // Fix #4 — Filter out self-advertisements.
     if (_samePeer(peer.myHash, myHash)) return;
 
@@ -257,7 +330,9 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
         lastSeen: peer.lastSeen,
       );
     }
-    Get.log('NEARBY_TRACE: Buffer now has ${_buffer.length} items');
+    if (kDebugMode) {
+      Get.log('NEARBY_TRACE: Buffer now has ${_buffer.length} items');
+    }
   }
 
   // ── Public API ──────────────────────────────────────────────────────────
@@ -309,11 +384,23 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
 
       await _refreshPeerConnectionStatus();
 
+      // ── Session cooldown gate ─────────────────────────────────────────
+      if (isCooldownActive) {
+        Get.snackbar(
+          'Session Cooldown',
+          'Wait ${cooldownRemaining.value} before starting a new session.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+
       // Reset per-session (per-place) counters.
       sessionRequestsSent.value = 0;
       sessionMutualConnections.value = 0;
       sessionComplete.value = false;
       sessionEndReason.value = '';
+      currentIncomingPeer.value = null;
 
       scanning.value = true;
 
@@ -358,6 +445,9 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     _revertToPresenceTimer = null;
     _autoCompleteTimer?.cancel();
     _autoCompleteTimer = null;
+    _requestRetryTimer?.cancel();
+    _requestRetryTimer = null;
+    _requestRetryCount = 0;
     await _peerSub?.cancel();
     _peerSub = null;
     await _ble.stopScanning();
@@ -390,15 +480,17 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       // ── Per-session limits — auto-stop handles the UI, just guard here ─
       if (_isSessionLimitReached) return;
 
-      // Fix #1 — Prevent overwriting an in-flight request.
+      // If another request is in flight, cancel its retry chain so the user
+      // can immediately send a new request to someone else. In crowded areas,
+      // locking them out for 30s per request is frustrating.
       if (pendingRequestTarget.value != null) {
-        Get.snackbar(
-          'Request In Progress',
-          'Wait for your current request to complete before sending another.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 2),
-        );
-        return;
+        _requestRetryTimer?.cancel();
+        _requestRetryTimer = null;
+        _requestRetryCount = 0;
+        pendingRequestTarget.value = null;
+        if (scanning.value) {
+          await _ble.broadcastState(_identity.identity, BleIntent.presence);
+        }
       }
 
       // Don't allow duplicate/invalid re-requests when a local row exists.
@@ -472,19 +564,48 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
         duration: const Duration(seconds: 2),
       );
 
-      // Revert to presence after 10 seconds.
-      _revertToPresenceTimer?.cancel();
-      _revertToPresenceTimer = Timer(const Duration(seconds: 10), () {
-        pendingRequestTarget.value = null;
-        if (scanning.value) {
-          _ble.broadcastState(_identity.identity, BleIntent.presence);
+      // ── Retry loop: re-broadcast request 3 times × 10s each ──────────
+      // In crowded BLE environments, the target may not scan our specific
+      // advertisement in a single 10-second window. We retry up to 3 times
+      // (30s total) and stop early if the request gets accepted.
+      _requestRetryCount = 1; // first broadcast already sent above
+      _requestRetryTimer?.cancel();
+      _requestRetryTimer = Timer.periodic(_requestRetryInterval, (timer) {
+        // Stop retrying if: accepted, session ended, or max retries hit.
+        if (pendingRequestTarget.value == null ||
+            !scanning.value ||
+            _requestRetryCount >= _maxRequestRetries) {
+          timer.cancel();
+          _requestRetryTimer = null;
+          // Final revert to presence if still broadcasting request.
+          if (pendingRequestTarget.value != null) {
+            pendingRequestTarget.value = null;
+            if (scanning.value) {
+              _ble.broadcastState(_identity.identity, BleIntent.presence);
+            }
+          }
+          return;
         }
+
+        // Re-broadcast the request.
+        _requestRetryCount++;
+        Get.log(
+          'NearbyController: Request retry $_requestRetryCount/$_maxRequestRetries '
+          'for $targetHash',
+        );
+        _ble.broadcastState(
+          _identity.identity,
+          BleIntent.requestConnection,
+          targetHash: targetHash,
+        );
       });
 
       // Check if this was the last allowed request → auto-complete session.
       _checkAndAutoComplete();
     } catch (e) {
       pendingRequestTarget.value = null;
+      _requestRetryTimer?.cancel();
+      _requestRetryTimer = null;
       Get.log('NearbyController: sendConnectionRequest failed – $e');
     }
   }
@@ -668,20 +789,24 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
 
     // For load testing visibility, we expand the take limit if crowd exceeds 100
     final displayList = sorted.take(500).toList();
-    Get.log(
-      'NEARBY_TRACE: Processing buffer loop... displayList has ${displayList.length} items',
-    );
+    if (kDebugMode) {
+      Get.log(
+        'NEARBY_TRACE: Processing buffer loop... displayList has ${displayList.length} items',
+      );
+    }
 
     if (_shouldRebuildUi(users, displayList)) {
       users.assignAll(displayList);
-      Get.log(
-        'NEARBY_TRACE: UI assigned successfully. Users count: ${users.length}',
-      );
-    } else {
-      Get.log('NEARBY_TRACE: UI matched perfectly, no rebuild.');
+      if (kDebugMode) {
+        Get.log(
+          'NEARBY_TRACE: UI assigned successfully. Users count: ${users.length}',
+        );
+      }
     }
 
-    await _refreshPeerConnectionStatus();
+    // Note: _peerConnectionStatus is kept up-to-date by event-driven calls
+    // (sendConnectionRequest, _handleAccepted, _handleIncomingRequest, etc.)
+    // so we don't need a full DB query on every 2-second buffer flush.
 
     // ── Handle incoming connection requests ──
     // Skip entirely if mutual limit is already reached — no point processing
@@ -691,6 +816,27 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
 
     for (final peer in sorted) {
       final peerKey = _canonicalHash(peer.myHash);
+
+      // ── Lazy re-accept: if we already accepted this peer but they are
+      // still broadcasting requestConnection (meaning they missed our
+      // accept), re-broadcast the accept so it gets delivered.
+      if (peer.intent == BleIntent.requestConnection &&
+          _isTargetedToMe(peer)) {
+        final existingConn = _peerConnectionStatus[peerKey];
+        if (existingConn == ConnectionStatus.accepted) {
+          // They missed our accept — re-broadcast it.
+          if (!_acceptBroadcastQueue.contains(peer.myHash) &&
+              (_acceptBroadcastTimer == null ||
+                  !_acceptBroadcastTimer!.isActive)) {
+            Get.log(
+              'NearbyController: Lazy re-accept for ${peer.myHash} '
+              '(peer still requesting, we already accepted).',
+            );
+            _enqueueAcceptBroadcast(peer.myHash);
+          }
+          continue; // Skip normal incoming handling for this peer.
+        }
+      }
 
       // Queue new incoming requests only if we can still accept.
       if (!mutualLimitReached &&
@@ -711,9 +857,10 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       }
     }
 
-    // Process one queued incoming request at a time.
+    // Surface one queued incoming request at a time.
+    // Only show the next if the current banner is empty (user acted on it).
     if (!mutualLimitReached &&
-        !(Get.isDialogOpen ?? false) &&
+        currentIncomingPeer.value == null &&
         _incomingRequestQueue.isNotEmpty) {
       final next = _incomingRequestQueue.removeAt(0);
       _handleIncomingRequest(next);
@@ -788,26 +935,21 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       await _refreshPeerConnectionStatus();
     }
 
-    if (!(Get.isDialogOpen ?? false)) {
-      Get.defaultDialog(
-        title: 'Connection Request',
-        middleText: 'User ${displayPeerId(peer.myHash)}… wants to connect.',
-        textConfirm: 'Accept',
-        textCancel: 'Ignore',
-        confirmTextColor: Colors.white,
-        onConfirm: () async {
-          Get.back(); // close dialog
-          await _acceptPeer(peer);
-        },
-        onCancel: () {
-          // Record as ignored so we don't ask again this scan session.
-          // The dialog is auto-closed by GetX on cancel.
-        },
-      );
-    } else {
-      // Dialog is still open from a previous request — re-queue this one.
-      _incomingRequestQueue.insert(0, peer);
-    }
+    // Surface the request as a non-blocking banner instead of a modal dialog.
+    currentIncomingPeer.value = peer;
+  }
+
+  /// Called by the UI when the user taps "Accept" on the incoming request banner.
+  Future<void> acceptCurrentIncoming() async {
+    final peer = currentIncomingPeer.value;
+    if (peer == null) return;
+    currentIncomingPeer.value = null; // dismiss banner immediately
+    await _acceptPeer(peer);
+  }
+
+  /// Called by the UI when the user taps "Ignore" on the incoming request banner.
+  void ignoreCurrentIncoming() {
+    currentIncomingPeer.value = null; // dismiss banner
   }
 
   /// Shared logic for accepting a peer — persists to DB and queues the
@@ -901,8 +1043,10 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       targetHash: target,
     );
 
-    // Keep this accept on-air for 5 seconds before moving to the next.
-    _acceptBroadcastTimer = Timer(const Duration(seconds: 5), () {
+    // Keep this accept on-air for 10 seconds before moving to the next.
+    // (Increased from 5s to survive crowded BLE environments where the
+    // requester may not scan our advertisement quickly.)
+    _acceptBroadcastTimer = Timer(const Duration(seconds: 10), () {
       _processNextAcceptBroadcast();
     });
   }
@@ -916,6 +1060,14 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
         'Ignoring accept from ${peer.myHash}.',
       );
       return;
+    }
+
+    // ── Stop request retries — the request was accepted! ───────────────
+    if (pendingRequestTarget.value != null &&
+        _samePeer(pendingRequestTarget.value!, peer.myHash)) {
+      _requestRetryTimer?.cancel();
+      _requestRetryTimer = null;
+      _requestRetryCount = 0;
     }
 
     final existing = await _db.findConnectionByOther(peer.myHash);
@@ -957,6 +1109,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       );
     } else {
       // Recovery path: if local pending row was lost, still mark as connected.
+      sessionMutualConnections.value++;
       await _db.insertConnection(
         Connection(
           myOfflineId: _identity.identity.offlineId,
@@ -1156,7 +1309,8 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       if (!scanning.value) return; // User already stopped manually.
       sessionComplete.value = true;
       stopScanningAndBroadcasting();
-      Get.log('NearbyController: ✅ Session auto-completed.');
+      _startCooldownTimer(); // Prevent immediate session restart.
+      Get.log('NearbyController: ✅ Session auto-completed. Cooldown started.');
     });
   }
 
@@ -1169,6 +1323,8 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     _revertToPresenceTimer?.cancel();
     _acceptBroadcastTimer?.cancel();
     _autoCompleteTimer?.cancel();
+    _requestRetryTimer?.cancel();
+    _cooldownTickTimer?.cancel();
     _loadTestTimer?.cancel();
     _peerSub?.cancel();
     super.onClose();

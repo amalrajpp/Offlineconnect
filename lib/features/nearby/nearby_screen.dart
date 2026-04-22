@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:offline_connect/core/constants/bio_constants.dart';
@@ -102,18 +103,19 @@ class _NearbyScreenState extends State<NearbyScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.bug_report_outlined),
-            tooltip: 'Run Load Test',
-            onPressed: () {
-              controller.runDeveloperLoadTest();
-              Get.snackbar(
-                'Load Test Initiated',
-                'Injected 300 devices. Simulating +10 more every 3s...',
-                snackPosition: SnackPosition.BOTTOM,
-              );
-            },
-          ),
+          if (kDebugMode)
+            IconButton(
+              icon: const Icon(Icons.bug_report_outlined),
+              tooltip: 'Run Load Test',
+              onPressed: () {
+                controller.runDeveloperLoadTest();
+                Get.snackbar(
+                  'Load Test Initiated',
+                  'Injected 300 devices. Simulating +10 more every 3s...',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+              },
+            ),
           // Play / Pause toggle.
           Obx(() {
             final isScanning = controller.scanning.value;
@@ -211,42 +213,63 @@ class _NearbyScreenState extends State<NearbyScreen>
                       ),
                       const SizedBox(height: 32),
 
-                      // New Session button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(28),
+                      // New Session button — respects cooldown
+                      Obx(() {
+                        final cooling = controller.isCooldownActive;
+                        final remaining = controller.cooldownRemaining.value;
+
+                        return Column(
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              height: 56,
+                              child: FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: cooling
+                                      ? theme.colorScheme.surfaceContainerHighest
+                                      : theme.colorScheme.primary,
+                                  foregroundColor: cooling
+                                      ? theme.colorScheme.onSurface.withValues(alpha: 0.5)
+                                      : Colors.black,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(28),
+                                  ),
+                                ),
+                                onPressed: cooling
+                                    ? null
+                                    : () {
+                                        controller.users.clear();
+                                        _cachedPositions.clear();
+                                        controller.startScanningAndBroadcasting();
+                                      },
+                                icon: Icon(
+                                  cooling ? Icons.timer_outlined : Icons.refresh,
+                                ),
+                                label: Text(
+                                  cooling
+                                      ? 'New Session in $remaining'
+                                      : 'Start New Session',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                          onPressed: () {
-                            controller.users.clear();
-                            _cachedPositions.clear();
-                            controller.startScanningAndBroadcasting();
-                          },
-                          icon: const Icon(Icons.refresh),
-                          label: const Text(
-                            'Start New Session',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                            const SizedBox(height: 12),
+                            Text(
+                              cooling
+                                  ? 'Move to a new place or wait for the cooldown.'
+                                  : 'Move to a new place for fresh limits.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Move to a new place for fresh limits.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.5,
-                          ),
-                        ),
-                      ),
+                          ],
+                        );
+                      }),
                     ],
                   ),
                 ),
@@ -529,6 +552,18 @@ class _NearbyScreenState extends State<NearbyScreen>
                           ],
                         ),
                       ),
+                    ),
+                  ),
+
+                // ── Non-blocking Incoming Request Banner ──────────────────
+                if (controller.currentIncomingPeer.value != null)
+                  Positioned(
+                    bottom: 24,
+                    left: 16,
+                    right: 16,
+                    child: _IncomingRequestBanner(
+                      peer: controller.currentIncomingPeer.value!,
+                      controller: controller,
                     ),
                   ),
               ],
@@ -922,6 +957,152 @@ class VirtualSpacePainter extends CustomPainter {
   @override
   bool shouldRepaint(VirtualSpacePainter oldDelegate) =>
       oldDelegate.gridColor != gridColor;
+}
+
+/// A non-blocking banner that appears at the bottom of the radar when
+/// someone sends a connection request. Unlike a modal dialog, the user
+/// can still interact with the radar while this is visible.
+class _IncomingRequestBanner extends StatelessWidget {
+  final DiscoveredPeer peer;
+  final NearbyController controller;
+
+  const _IncomingRequestBanner({
+    required this.peer,
+    required this.controller,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasUsername =
+        peer.offlineUsername != null && peer.offlineUsername!.trim().isNotEmpty;
+    final displayName = hasUsername
+        ? '@${peer.offlineUsername}'
+        : 'User ${controller.displayPeerId(peer.myHash)}…';
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.4),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.primary.withValues(alpha: 0.15),
+              blurRadius: 20,
+              spreadRadius: 4,
+              offset: const Offset(0, -4),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Avatar
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: theme.colorScheme.primary,
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+              child: CircleAvatar(
+                radius: 24,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                backgroundImage: ResizeImage(
+                  AssetImage(AppAssets.getAvatarPath(peer.avatarId)),
+                  width: 96,
+                  height: 96,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Name + label
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    displayName,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Wants to connect',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Ignore button
+            IconButton(
+              onPressed: controller.ignoreCurrentIncoming,
+              icon: Icon(
+                Icons.close,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+              tooltip: 'Ignore',
+              style: IconButton.styleFrom(
+                backgroundColor:
+                    theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Accept button
+            FilledButton(
+              onPressed: controller.acceptCurrentIncoming,
+              style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: const Text(
+                'Accept',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 Widget _buildPositionedBlip(

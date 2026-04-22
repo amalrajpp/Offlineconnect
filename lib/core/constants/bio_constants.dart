@@ -38,6 +38,16 @@ const List<String> nativityOptions = [
   'West Bengal',
 ];
 
+/// Safety: nativity index must fit in 5 bits of the BLE payload (0-31).
+/// If you add more states, the BLE manufacturer data will silently overflow.
+// ignore: unused_element
+final int _nativityBitCheck = nativityOptions.length <= 32
+    ? 0
+    : throw StateError(
+        'nativityOptions has ${nativityOptions.length} entries but BLE payload '
+        'only supports 32 (5 bits). Remove entries or increase bit allocation.',
+      );
+
 /// Helper to get gender name safely
 String getGenderName(int gender) {
   if (gender < 0 || gender >= genderOptions.length) return 'Unknown';

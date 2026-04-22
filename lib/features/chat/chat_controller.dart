@@ -335,17 +335,10 @@ class ChatController extends GetxController {
 
   /// Initiates the Report Protocol: The Audit Trail
   Future<void> reportUser(String reason) async {
-    // 1. Gather the last 50 messages
-    final db = await Get.find<LocalDbService>().database;
-    final rows = await db.query(
-      'messages',
-      where: 'conversation_id = ?',
-      whereArgs: [_activeConversationId],
-      orderBy: 'created_at DESC',
-      limit: 50,
+    // 1. Gather recent messages from Firestore (not local DB — messages live in cloud).
+    final recentMessages = await _firebase.fetchConversationPreviewMessages(
+      [_activeConversationId, ..._conversationCandidates],
     );
-
-    final recentMessages = rows.map((r) => Message.fromMap(r)).toList();
 
     // 2. The Firestore Drop
     await _firebase.reportUser(

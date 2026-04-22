@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -28,48 +29,49 @@ class ConnectionsScreen extends StatelessWidget {
         title: const Text('Connections'),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.bug_report_outlined),
-            tooltip: 'Run Load Test',
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Developer Stress Test'),
-                  content: const Text(
-                    'Inject 1,000 mock offline users and 500 connections to test scrolling, memory, and database scaling?',
+          if (kDebugMode)
+            IconButton(
+              icon: const Icon(Icons.bug_report_outlined),
+              tooltip: 'Run Load Test',
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Developer Stress Test'),
+                    content: const Text(
+                      'Inject 1,000 mock offline users and 500 connections to test scrolling, memory, and database scaling?',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Inject Load'),
+                      ),
+                    ],
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('Cancel'),
-                    ),
-                    FilledButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('Inject Load'),
-                    ),
-                  ],
-                ),
-              );
-              if (confirm != true) return;
-              Get.snackbar(
-                'Load Test',
-                'Injecting mock data... wait a moment.',
-                snackPosition: SnackPosition.BOTTOM,
-              );
-              final identity = Get.find<IdentityService>().identity;
-              await Get.find<LocalDbService>().runDeveloperLoadTest(
-                identity.offlineId,
-              );
-              controller.loadConnections();
-              Get.snackbar(
-                'Success',
-                'Injected 500 Connections and 1000 Users.',
-                snackPosition: SnackPosition.BOTTOM,
-                duration: const Duration(seconds: 4),
-              );
-            },
-          ),
+                );
+                if (confirm != true) return;
+                Get.snackbar(
+                  'Load Test',
+                  'Injecting mock data... wait a moment.',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+                final identity = Get.find<IdentityService>().identity;
+                await Get.find<LocalDbService>().runDeveloperLoadTest(
+                  identity.offlineId,
+                );
+                controller.loadConnections();
+                Get.snackbar(
+                  'Success',
+                  'Injected 500 Connections and 1000 Users.',
+                  snackPosition: SnackPosition.BOTTOM,
+                  duration: const Duration(seconds: 4),
+                );
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',

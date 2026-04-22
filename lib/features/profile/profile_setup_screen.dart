@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 
 import 'profile_controller.dart';
 import '../../core/services/identity_service.dart';
+import '../../core/services/firebase_sync_service.dart';
+import '../../core/services/local_db_service.dart';
 import '../../core/constants/bio_constants.dart';
 import '../../core/constants/assets.dart';
 
@@ -32,6 +34,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   int _bottomWearColor = 0;
   int _gender = 0;
   int _nativity = 0;
+  bool _eulaAccepted = false;
 
   // Cached constants for faster building
   static const List<String> _outfitColors = [
@@ -117,6 +120,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       _nativity = identity.nativity;
       final subLen = nativityOptions.length;
       if (_nativity < 0 || _nativity >= subLen) _nativity = 0;
+
+      // Pre-fill display name, bio, and photo from saved profile.
+      final controller = Get.find<ProfileController>();
+      final existing = controller.profile.value;
+      if (existing != null) {
+        _nameController.text = existing.displayName;
+        _bioController.text = existing.bio ?? '';
+        _photoUrl = existing.photoUrl;
+        _eulaAccepted = controller.hasAcceptedEULA.value;
+      }
     } catch (_) {}
   }
 
@@ -153,6 +166,78 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _bioController.dispose();
     super.dispose();
   }
+  void _confirmDeleteAccount(BuildContext ctx) {
+    final confirmController = TextEditingController();
+    showDialog(
+      context: ctx,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This will permanently delete your profile, all connections, '
+              'and chat history. This action cannot be undone.\n\n'
+              'Type DELETE to confirm:',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: confirmController,
+              decoration: const InputDecoration(
+                hintText: 'DELETE',
+                border: OutlineInputBorder(),
+              ),
+              textCapitalization: TextCapitalization.characters,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              if (confirmController.text.trim().toUpperCase() != 'DELETE') {
+                Get.snackbar(
+                  'Confirmation Required',
+                  'Please type DELETE to confirm account deletion.',
+                  snackPosition: SnackPosition.BOTTOM,
+                );
+                return;
+              }
+              Navigator.pop(dialogCtx);
+
+              final identity = Get.find<IdentityService>();
+              final firebase = Get.find<FirebaseSyncService>();
+              final db = Get.find<LocalDbService>();
+
+              // 1. Wipe cloud data.
+              await firebase.deleteAccount(identity.identity.offlineId);
+
+              // 2. Wipe local database.
+              await db.wipeDatabase();
+
+              // 3. Clear identity.
+              await identity.wipeIdentity();
+
+              // 4. Restart app flow.
+              Get.snackbar(
+                'Account Deleted',
+                'All your data has been removed.',
+                snackPosition: SnackPosition.BOTTOM,
+              );
+              // Navigate to root and force re-initialization.
+              Get.offAllNamed('/');
+            },
+            child: const Text('Delete Everything'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _pickPhoto() async {
     final controller = Get.find<ProfileController>();
@@ -169,6 +254,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     try {
       final controller = Get.find<ProfileController>();
+      controller.hasAcceptedEULA.value = _eulaAccepted;
       await controller.saveProfile(
         username: _usernameController.text,
         displayName: _nameController.text,
@@ -362,10 +448,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                           width: 2,
                                         ),
                                       ),
-                                      child: const Icon(
+                                      child: Icon(
                                         Icons.camera_alt,
                                         size: 20,
-                                        color: Colors.black,
+                                        color: theme.colorScheme.onPrimary,
                                       ),
                                     ),
                                   ],
@@ -667,21 +753,60 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
                       const SizedBox(height: 32),
 
+                      // ── EULA Agreement ──
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Checkbox(
+                            value: _eulaAccepted,
+                            onChanged: (v) =>
+                                setState(() => _eulaAccepted = v ?? false),
+                            activeColor: theme.colorScheme.primary,
+                            checkColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => setState(
+                                () => _eulaAccepted = !_eulaAccepted,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Text(
+                                  'I agree to the Terms of Service and acknowledge '
+                                  'that my profile information will be shared with '
+                                  'nearby devices via Bluetooth.',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
                       // ── Submit button ──
                       SizedBox(
                         width: double.infinity,
                         height: 64,
                         child: FilledButton(
                           style: FilledButton.styleFrom(
-                            backgroundColor:
-                                theme.colorScheme.primary, // Snapchat yellow!
-                            foregroundColor:
-                                Colors.black, // Dark text on yellow
+                            backgroundColor: _eulaAccepted
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.surfaceContainerHighest,
+                            foregroundColor: _eulaAccepted
+                                ? Colors.black
+                                : theme.colorScheme.onSurface.withValues(alpha: 0.4),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(32),
                             ),
                           ),
-                          onPressed: _saving ? null : _save,
+                          onPressed: (_saving || !_eulaAccepted) ? null : _save,
                           child: _saving
                               ? const SizedBox(
                                   width: 28,
@@ -702,6 +827,26 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         ),
                       ),
                       const SizedBox(height: 32),
+
+                      // ── Delete Account ──
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: () => _confirmDeleteAccount(context),
+                          icon: Icon(
+                            Icons.delete_forever,
+                            color: theme.colorScheme.error,
+                            size: 18,
+                          ),
+                          label: Text(
+                            'Delete Account',
+                            style: TextStyle(
+                              color: theme.colorScheme.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),

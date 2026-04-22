@@ -157,7 +157,35 @@ class _ChatScreenState extends State<ChatScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
-              if (value == 'block') _controller.blockUser();
+              if (value == 'block') {
+                showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Block User?'),
+                    content: const Text(
+                      'This will permanently delete your chat history with this person '
+                      'and prevent them from contacting you.\n\n'
+                      'This action cannot be undone.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red,
+                        ),
+                        onPressed: () {
+                          Navigator.pop(ctx, true);
+                          _controller.blockUser();
+                        },
+                        child: const Text('Block'),
+                      ),
+                    ],
+                  ),
+                );
+              }
               if (value == 'report') _showReportDialog(context);
             },
             itemBuilder: (context) => [
@@ -274,6 +302,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       textCapitalization: TextCapitalization.sentences,
                       maxLines: 4,
                       minLines: 1,
+                      maxLength: 2000,
+                      buildCounter: (_, {required currentLength, required isFocused, required maxLength}) => null,
                       decoration: const InputDecoration(
                         hintText: 'Type a message…',
                         filled: false,
@@ -302,9 +332,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     child: IconButton(
                       onPressed: _send,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.send_rounded,
-                        color: Colors.white,
+                        color: theme.colorScheme.onPrimary,
                         size: 20,
                       ),
                     ),

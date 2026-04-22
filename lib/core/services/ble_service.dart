@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -333,11 +333,15 @@ class BleService extends GetxService {
 
       // Subscribe to scan results BEFORE starting scan to catch the first burst.
       _scanSubscription = FlutterBluePlus.onScanResults.listen((results) {
-        Get.log('BLE_SCAN: onScanResults batch: ${results.length} result(s).');
+        if (kDebugMode) {
+          Get.log('BLE_SCAN: onScanResults batch: ${results.length} result(s).');
+        }
         for (final result in results) {
           final peer = _parseScanResult(result);
           if (peer != null) {
-            Get.log('BLE_SCAN: ✅ Parsed peer ${peer.myHash}');
+            if (kDebugMode) {
+              Get.log('BLE_SCAN: ✅ Parsed peer ${peer.myHash}');
+            }
             _peerController.add(peer);
           }
         }
@@ -458,9 +462,7 @@ class BleService extends GetxService {
     List<int>? raw;
 
     // ── Comprehensive debug logging (every device) ───────────────────────
-    // Log ALL devices so we can verify the scan is working and inspect
-    // what the iOS advertisement actually looks like on Android.
-    if (Platform.isAndroid) {
+    if (kDebugMode && Platform.isAndroid) {
       final id = result.device.remoteId.str;
       final name = result.advertisementData.advName;
       final svcs = result.advertisementData.serviceUuids;
@@ -486,28 +488,28 @@ class BleService extends GetxService {
       var sawProtocolCandidate = false;
       for (final uuidPattern in allUuids) {
         final uuidStr = uuidPattern.str.replaceAll('-', '').toLowerCase();
-        Get.log(
-          'BLE_UUID_CHECK: "${uuidPattern.str}" -> stripped="$uuidStr" len=${uuidStr.length}',
-        );
+        if (kDebugMode) {
+          Get.log(
+            'BLE_UUID_CHECK: "${uuidPattern.str}" -> stripped="$uuidStr" len=${uuidStr.length}',
+          );
+        }
         if (uuidStr.startsWith('0c0c')) {
           sawProtocolCandidate = true;
         }
         if (uuidStr.startsWith('0c0c') && uuidStr.length == 32) {
           raw = _hexToBytes(uuidStr);
-          Get.log(
-            'BLE_DEBUG: ✅ Found iOS UUID: $uuidStr -> ${raw.length} bytes',
-          );
+          if (kDebugMode) {
+            Get.log(
+              'BLE_DEBUG: ✅ Found iOS UUID: $uuidStr -> ${raw.length} bytes',
+            );
+          }
           break;
         }
       }
-      if (raw == null && allUuids.isNotEmpty) {
+      if (raw == null && allUuids.isNotEmpty && kDebugMode) {
         if (sawProtocolCandidate) {
           Get.log(
             'BLE_DEBUG: ⚠️ Found 0c0c-like UUID(s), but payload length/format was invalid.',
-          );
-        } else {
-          Get.log(
-            'BLE_DEBUG: ℹ️ Skipping non-protocol UUID(s): ${allUuids.map((u) => u.str).toList()}',
           );
         }
       }

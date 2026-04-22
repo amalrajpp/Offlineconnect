@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'dart:math';
-import '../../core/services/local_db_service.dart';
 
 class DestinySetupScreen extends StatefulWidget {
   const DestinySetupScreen({super.key});
@@ -35,58 +32,6 @@ class _DestinySetupScreenState extends State<DestinySetupScreen> {
 
   double _introvertScale = 0.5;
 
-  bool _isSyncing = false;
-
-  Future<void> _syncToDestinyCloud() async {
-    if (_selectedInterests.length < 3) {
-      Get.snackbar(
-        'More Info Needed',
-        'Please select at least 3 interests so we can find your >90% matches!',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withValues(alpha: 0.1),
-        colorText: Theme.of(context).colorScheme.error,
-      );
-      return;
-    }
-
-    setState(() => _isSyncing = true);
-
-    // Simulate backend cloud function API call to sync preferences
-    // and download the cached offline 6-byte hashes of >90% matched users.
-    await Future.delayed(const Duration(seconds: 3));
-
-    // GENERATE MOCK DESTINY IDS (hashes matching BLE)
-    final randomGen = Random();
-    final Map<String, double> mockMatches = {};
-    for (int i = 0; i < 14; i++) {
-      // Create 10-char dummy hashes (hex) for simulation
-      String dummyHash = List.generate(
-        10,
-        (_) => randomGen.nextInt(16).toRadixString(16),
-      ).join('');
-      mockMatches[dummyHash] =
-          0.90 + (randomGen.nextDouble() * 0.09); // 0.90 to 0.99
-    } // Save to local DB Service
-    try {
-      await Get.find<LocalDbService>().saveDestinyMatches(mockMatches);
-    } catch (e) {
-      debugPrint("Error saving destiny matches: $e");
-    }
-
-    if (mounted) {
-      setState(() => _isSyncing = false);
-      Get.back();
-      Get.snackbar(
-        'Destiny Synced ✨',
-        'We found 14 highly compatible people in your city! Their IDs are securely saved offline. Your radar will glow Gold when they are nearby.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.amber.withValues(alpha: 0.2),
-        colorText: Colors.amber.shade900,
-        duration: const Duration(seconds: 5),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -102,27 +47,7 @@ class _DestinySetupScreenState extends State<DestinySetupScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _isSyncing ? _buildSyncingState(theme) : _buildSetupForm(theme),
-    );
-  }
-
-  Widget _buildSyncingState(ThemeData theme) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(color: Colors.amber),
-          const SizedBox(height: 24),
-          Text(
-            'Analyzing 10,000+ profiles...\nFinding your >90% matches',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-        ],
-      ),
+      body: _buildSetupForm(theme),
     );
   }
 
@@ -270,22 +195,34 @@ class _DestinySetupScreenState extends State<DestinySetupScreen> {
             width: double.infinity,
             height: 56,
             child: FilledButton.icon(
-              onPressed: _syncToDestinyCloud,
+              onPressed: null, // Destiny matching is coming soon.
               style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(28),
                 ),
               ),
-              icon: const Icon(Icons.cloud_sync, color: Colors.black),
-              label: const Text(
-                'Sync Destiny Matches to Device',
+              icon: Icon(
+                Icons.cloud_sync,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
+              label: Text(
+                'Coming Soon',
                 style: TextStyle(
-                  color: Colors.black,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Destiny Match is under development. Stay tuned!',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(height: 32),
