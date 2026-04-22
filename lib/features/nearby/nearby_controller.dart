@@ -40,6 +40,46 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
   /// Used to disable the connect button for other peers while in-flight.
   final Rx<String?> pendingRequestTarget = Rx<String?>(null);
 
+  // ── Per-Session (Per-Place) Limits ─────────────────────────────────────
+  //
+  // A "session" is one scanning cycle. When you walk into a cafe and start
+  // scanning, that's your session. Limits reset when you stop and restart.
+
+  /// Maximum outgoing requests allowed per session (per place).
+  static const int maxRequestsPerSession = 5;
+
+  /// Maximum mutual (accepted) connections allowed per session.
+  static const int maxMutualPerSession = 2;
+
+  /// Outgoing requests sent this session.
+  final RxInt sessionRequestsSent = 0.obs;
+
+  /// Mutual connections made this session (both directions count).
+  final RxInt sessionMutualConnections = 0.obs;
+
+  /// True when a session has ended due to limits being reached.
+  /// The UI uses this to show a "session complete" summary instead of
+  /// the live radar.
+  final RxBool sessionComplete = false.obs;
+
+  /// The reason the session ended (for UI display).
+  final RxString sessionEndReason = ''.obs;
+
+  /// Whether the user can still send outgoing requests this session.
+  bool get canSendRequest => sessionRequestsSent.value < maxRequestsPerSession
+      && sessionMutualConnections.value < maxMutualPerSession;
+
+  /// Remaining outgoing requests for this session.
+  int get remainingRequests => maxRequestsPerSession - sessionRequestsSent.value;
+
+  /// Remaining mutual connections for this session.
+  int get remainingMutual => maxMutualPerSession - sessionMutualConnections.value;
+
+  /// Whether either session limit has been reached.
+  bool get _isSessionLimitReached =>
+      sessionRequestsSent.value >= maxRequestsPerSession ||
+      sessionMutualConnections.value >= maxMutualPerSession;
+
   /// First 12 characters of the offline ID (6 bytes in hex).
   late final String myHash;
 
@@ -75,6 +115,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
 
   bool canAddConnection(String hash) {
     if (isPeerPending(hash)) return false;
+    if (!canSendRequest) return false;
     return connectionStatusForPeer(hash) == null;
   }
 
@@ -120,6 +161,9 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
   final Map<String, DiscoveredPeer> _buffer = {};
   Timer? _batchTimer;
   StreamSubscription<DiscoveredPeer>? _peerSub;
+
+  /// Grace-period timer for auto-completing the session after limits hit.
+  Timer? _autoCompleteTimer;
 
   /// Tracks peers whose accept responses we have already handled.
   final Set<String> _handledAccepts = {};
@@ -265,6 +309,12 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
 
       await _refreshPeerConnectionStatus();
 
+      // Reset per-session (per-place) counters.
+      sessionRequestsSent.value = 0;
+      sessionMutualConnections.value = 0;
+      sessionComplete.value = false;
+      sessionEndReason.value = '';
+
       scanning.value = true;
 
       // Broadcast our presence intent.
@@ -306,6 +356,8 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     _batchTimer = null;
     _revertToPresenceTimer?.cancel();
     _revertToPresenceTimer = null;
+    _autoCompleteTimer?.cancel();
+    _autoCompleteTimer = null;
     await _peerSub?.cancel();
     _peerSub = null;
     await _ble.stopScanning();
@@ -314,7 +366,8 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     _knownIncomingHashes.clear();
     _handledAccepts.clear();
     _incomingRequestQueue.clear();
-    users.clear();
+    // DON'T clear users — the session-complete screen still needs them
+    // to show who was discovered. They get cleared on next session start.
   }
 
   /// Sends a connection request directed at [targetHash].
@@ -333,6 +386,9 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
         );
         return;
       }
+
+      // ── Per-session limits — auto-stop handles the UI, just guard here ─
+      if (_isSessionLimitReached) return;
 
       // Fix #1 — Prevent overwriting an in-flight request.
       if (pendingRequestTarget.value != null) {
@@ -385,6 +441,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       }
 
       pendingRequestTarget.value = targetHash;
+      sessionRequestsSent.value++;
 
       await _ble.broadcastState(
         _identity.identity,
@@ -410,7 +467,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       final shortHash = displayPeerId(targetHash);
       Get.snackbar(
         'Request Sent',
-        'Connection request sent to $shortHash…',
+        'Connection request sent to $shortHash… ($remainingRequests left)',
         snackPosition: SnackPosition.BOTTOM,
         duration: const Duration(seconds: 2),
       );
@@ -423,6 +480,9 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
           _ble.broadcastState(_identity.identity, BleIntent.presence);
         }
       });
+
+      // Check if this was the last allowed request → auto-complete session.
+      _checkAndAutoComplete();
     } catch (e) {
       pendingRequestTarget.value = null;
       Get.log('NearbyController: sendConnectionRequest failed – $e');
@@ -435,6 +495,9 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
   /// previously requested to connect with.
   Future<void> sendAcceptRequest(String targetHash) async {
     try {
+      // ── Per-session limits — auto-stop handles the UI, just guard here ─
+      if (_isSessionLimitReached) return;
+
       // Fix #1 — Prevent overwriting an in-flight request.
       if (pendingRequestTarget.value != null) {
         Get.snackbar(
@@ -621,19 +684,26 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     await _refreshPeerConnectionStatus();
 
     // ── Handle incoming connection requests ──
+    // Skip entirely if mutual limit is already reached — no point processing
+    // requests we can never accept.
+    final mutualLimitReached =
+        sessionMutualConnections.value >= maxMutualPerSession;
+
     for (final peer in sorted) {
       final peerKey = _canonicalHash(peer.myHash);
 
-      // Queue new incoming requests (Fix #3 — don't drop when dialog is open).
-      if (peer.intent == BleIntent.requestConnection &&
+      // Queue new incoming requests only if we can still accept.
+      if (!mutualLimitReached &&
+          peer.intent == BleIntent.requestConnection &&
           _isTargetedToMe(peer) &&
           !_knownIncomingHashes.contains(peerKey)) {
         _knownIncomingHashes.add(peerKey);
         _incomingRequestQueue.add(peer);
       }
 
-      // Handle accept responses.
-      if (peer.intent == BleIntent.acceptConnection &&
+      // Handle accept responses (from peers we requested).
+      if (!mutualLimitReached &&
+          peer.intent == BleIntent.acceptConnection &&
           _isTargetedToMe(peer) &&
           !_handledAccepts.contains(peerKey)) {
         _handledAccepts.add(peerKey);
@@ -642,7 +712,9 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     }
 
     // Process one queued incoming request at a time.
-    if (!(Get.isDialogOpen ?? false) && _incomingRequestQueue.isNotEmpty) {
+    if (!mutualLimitReached &&
+        !(Get.isDialogOpen ?? false) &&
+        _incomingRequestQueue.isNotEmpty) {
       final next = _incomingRequestQueue.removeAt(0);
       _handleIncomingRequest(next);
     }
@@ -654,7 +726,16 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     final existing = await _db.findConnectionByOther(peer.myHash);
     if (existing != null &&
         existing.status == ConnectionStatus.pendingOutgoing) {
+      // ── Per-session mutual limit gate ──────────────────────────────────
+      if (sessionMutualConnections.value >= maxMutualPerSession) {
+        Get.log(
+          'NearbyController: Mutual limit reached ($maxMutualPerSession). '
+          'Ignoring auto-accept for ${peer.myHash}.',
+        );
+        return;
+      }
       // Auto-accept — both sides want to connect (mutual request).
+      sessionMutualConnections.value++;
       await _db.updateConnectionStatus(existing.id!, ConnectionStatus.accepted);
       await _db.upsertKnownUser(
         UserProfile(
@@ -682,6 +763,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       }
       // Queue the accept broadcast so the other side sees it.
       _enqueueAcceptBroadcast(peer.myHash);
+      _checkAndAutoComplete();
       return;
     }
 
@@ -732,6 +814,18 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
   /// accept broadcast so it stays on-air long enough for the other side
   /// to detect it.
   Future<void> _acceptPeer(DiscoveredPeer peer) async {
+    // ── Per-session mutual limit gate ──────────────────────────────────
+    if (sessionMutualConnections.value >= maxMutualPerSession) {
+      Get.snackbar(
+        'Mutual Connection Limit',
+        'You already have $maxMutualPerSession connections at this place.',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+    sessionMutualConnections.value++;
+
     // Persist the connection.
     final existing = await _db.findConnectionByOther(peer.myHash);
     if (existing != null) {
@@ -771,6 +865,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
 
     // Queue the accept broadcast.
     _enqueueAcceptBroadcast(peer.myHash);
+    _checkAndAutoComplete();
   }
 
   // ── Accept broadcast queue ─────────────────────────────────────────────
@@ -814,9 +909,19 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
 
   /// Handles an acceptance from a peer we previously requested.
   Future<void> _handleAccepted(DiscoveredPeer peer) async {
+    // ── Per-session mutual limit gate ──────────────────────────────────
+    if (sessionMutualConnections.value >= maxMutualPerSession) {
+      Get.log(
+        'NearbyController: Mutual limit reached ($maxMutualPerSession). '
+        'Ignoring accept from ${peer.myHash}.',
+      );
+      return;
+    }
+
     final existing = await _db.findConnectionByOther(peer.myHash);
     if (existing != null) {
       if (existing.status != ConnectionStatus.accepted) {
+        sessionMutualConnections.value++;
         await _db.updateConnectionStatus(
           existing.id!,
           ConnectionStatus.accepted,
@@ -875,6 +980,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       await _refreshPeerConnectionStatus();
       await _ensureChatReadyForPeer(peer.myHash);
     }
+    _checkAndAutoComplete();
   }
 
   /// Refreshes the ConnectionsController list so the Connections tab
@@ -1018,6 +1124,42 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     );
   }
 
+  // ── Session Auto-Complete Engine ───────────────────────────────────────
+  //
+  // When a session limit is reached, we give a short grace period (10s) for
+  // any in-flight accept broadcasts to finish, then fully shut down scanning
+  // and flip [sessionComplete] so the UI can show the summary screen.
+
+  void _checkAndAutoComplete() {
+    if (!_isSessionLimitReached) return;
+    if (sessionComplete.value) return; // Already winding down.
+    if (_autoCompleteTimer?.isActive ?? false) return; // Already scheduled.
+
+    // Determine the reason for display.
+    if (sessionMutualConnections.value >= maxMutualPerSession) {
+      sessionEndReason.value =
+          'You made $maxMutualPerSession connections at this place! 🎉';
+    } else {
+      sessionEndReason.value =
+          'You used all $maxRequestsPerSession requests at this place.';
+    }
+
+    Get.log(
+      'NearbyController: Session limit reached. '
+      'Requests=${sessionRequestsSent.value}/$maxRequestsPerSession, '
+      'Mutuals=${sessionMutualConnections.value}/$maxMutualPerSession. '
+      'Auto-completing in 10s...',
+    );
+
+    // Grace period: let pending accept broadcasts finish (they take ~5s each).
+    _autoCompleteTimer = Timer(const Duration(seconds: 10), () {
+      if (!scanning.value) return; // User already stopped manually.
+      sessionComplete.value = true;
+      stopScanningAndBroadcasting();
+      Get.log('NearbyController: ✅ Session auto-completed.');
+    });
+  }
+
   // ── Lifecycle ───────────────────────────────────────────────────────────
 
   @override
@@ -1026,6 +1168,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     _batchTimer?.cancel();
     _revertToPresenceTimer?.cancel();
     _acceptBroadcastTimer?.cancel();
+    _autoCompleteTimer?.cancel();
     _loadTestTimer?.cancel();
     _peerSub?.cancel();
     super.onClose();

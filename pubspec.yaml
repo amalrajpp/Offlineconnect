@@ -1,7 +1,7 @@
 name: offline_connect
 description: "Discover and connect with nearby people offline using BLE."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.9.2

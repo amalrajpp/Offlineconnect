@@ -142,6 +142,118 @@ class _NearbyScreenState extends State<NearbyScreen>
           final maxRadius = mapSize / 2 * 0.95;
 
           return Obx(() {
+            // \u2500\u2500 Session Complete: show summary screen \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+            if (controller.sessionComplete.value) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 80,
+                        color: theme.colorScheme.primary,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Session Complete',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        controller.sessionEndReason.value,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // Stats row
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.2,
+                            ),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _buildStatColumn(
+                              theme,
+                              '${controller.sessionRequestsSent.value}',
+                              'Requests\nSent',
+                              Icons.send,
+                            ),
+                            Container(
+                              width: 1,
+                              height: 48,
+                              color: theme.dividerColor,
+                            ),
+                            _buildStatColumn(
+                              theme,
+                              '${controller.sessionMutualConnections.value}',
+                              'Connections\nMade',
+                              Icons.people,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // New Session button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 56,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                          ),
+                          onPressed: () {
+                            controller.users.clear();
+                            _cachedPositions.clear();
+                            controller.startScanningAndBroadcasting();
+                          },
+                          icon: const Icon(Icons.refresh),
+                          label: const Text(
+                            'Start New Session',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Move to a new place for fresh limits.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            // \u2500\u2500 Idle: not scanning and no discovered users \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
             if (!controller.scanning.value && controller.users.isEmpty) {
               return Center(
                 child: Column(
@@ -154,7 +266,7 @@ class _NearbyScreenState extends State<NearbyScreen>
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Tap ▶ to activate sonar\nNo internet required.',
+                      'Tap \u25b6 to activate sonar\nNo internet required.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyLarge?.copyWith(
                         color: theme.colorScheme.onSurface.withValues(
@@ -433,6 +545,37 @@ class _NearbyScreenState extends State<NearbyScreen>
           color: theme.colorScheme.onPrimaryContainer,
         ),
       ),
+    );
+  }
+
+  /// Builds a stat column for the session-complete summary card.
+  Widget _buildStatColumn(
+    ThemeData theme,
+    String value,
+    String label,
+    IconData icon,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 28, color: theme.colorScheme.primary),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+        ),
+      ],
     );
   }
 
