@@ -12,7 +12,7 @@ class DeviceCompatibilityService extends GetxService {
   Future<bool> hasBleSupport() async {
     try {
       // Use the static API to check availability.
-      final supported = await FlutterBluePlus.isAvailable;
+      final supported = await FlutterBluePlus.isSupported;
       return supported;
     } catch (e) {
       return false;
@@ -24,7 +24,7 @@ class DeviceCompatibilityService extends GetxService {
     final info = DeviceInfoPlugin();
     final android = await info.androidInfo;
     final sdk = android.version.sdkInt;
-    return (sdk ?? 0) >= minSupportedSdk;
+    return sdk >= minSupportedSdk;
   }
 
   /// Returns a human-friendly explanation when compatibility is missing.
@@ -32,8 +32,9 @@ class DeviceCompatibilityService extends GetxService {
     final osOk = await isAndroidSupported();
     if (!osOk) return 'This device is running an unsupported Android version.';
     final ble = await hasBleSupport();
-    if (!ble)
+    if (!ble) {
       return 'This device does not support Bluetooth Low Energy (BLE). Some features will be disabled.';
+    }
     return null;
   }
 }

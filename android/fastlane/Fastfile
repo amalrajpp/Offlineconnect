@@ -1,0 +1,21 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build and upload a new release to the Internal Testing track"
+  lane :internal do
+    # Go up to the root project folder
+    sh "cd ../.. && flutter build appbundle --release --no-tree-shake-icons"
+
+    # Uploads the built AAB to Google Play
+    upload_to_play_store(
+      track: 'internal',
+      aab: '../../build/app/outputs/bundle/release/app-release.aab',
+
+      # Skip metadata like descriptions/screenshots since you likely edit those manually for now
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true
+    )
+  end
+end

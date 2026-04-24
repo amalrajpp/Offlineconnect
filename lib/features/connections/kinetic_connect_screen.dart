@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -336,8 +336,8 @@ class _KineticConnectScreenState extends State<KineticConnectScreen> with Ticker
                         center: Alignment(0, -1.2 + (value * 1.6)),
                         radius: 1.5 + (value * 2.5),
                         colors: [
-                          const Color(0xFFE50914).withOpacity(0.5 * (value < 0.2 ? value * 5 : 1.0)), // Intense neon red
-                          const Color(0xFF7A0410).withOpacity(0.2 * (value < 0.2 ? value * 5 : 1.0)), // Deep crimson edge
+                          const Color(0xFFE50914).withValues(alpha: 0.5 * (value < 0.2 ? value * 5 : 1.0)), // Intense neon red
+                          const Color(0xFF7A0410).withValues(alpha: 0.2 * (value < 0.2 ? value * 5 : 1.0)), // Deep crimson edge
                           Colors.transparent,
                         ],
                         stops: const [0.0, 0.5, 1.0],
@@ -399,8 +399,8 @@ class _KineticConnectScreenState extends State<KineticConnectScreen> with Ticker
                          shape: BoxShape.circle,
                          gradient: RadialGradient(
                            colors: [
-                             const Color(0xFFE50914).withOpacity(inverseValue * 0.8),
-                             const Color(0xFF7A0410).withOpacity(inverseValue * 0.3),
+                             const Color(0xFFE50914).withValues(alpha: inverseValue * 0.8),
+                             const Color(0xFF7A0410).withValues(alpha: inverseValue * 0.3),
                              Colors.transparent,
                            ],
                            stops: const [0.0, 0.6, 1.0],
@@ -415,8 +415,8 @@ class _KineticConnectScreenState extends State<KineticConnectScreen> with Ticker
                          shape: BoxShape.circle,
                          gradient: RadialGradient(
                            colors: [
-                             Colors.white.withOpacity(inverseValue * 0.6), // Whisper smooth flare
-                             const Color(0xFFE50914).withOpacity(inverseValue * 0.3),
+                             Colors.white.withValues(alpha: inverseValue * 0.6), // Whisper smooth flare
+                             const Color(0xFFE50914).withValues(alpha: inverseValue * 0.3),
                              Colors.transparent,
                            ],
                            stops: const [0.0, 0.4, 1.0],
@@ -458,7 +458,7 @@ class _KineticConnectScreenState extends State<KineticConnectScreen> with Ticker
                         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                         elevation: 12,
-                        shadowColor: const Color(0xFFE50914).withOpacity(0.5),
+                        shadowColor: const Color(0xFFE50914).withValues(alpha: 0.5),
                       ),
                     ),
                   );
@@ -521,14 +521,14 @@ class _KineticConnectScreenState extends State<KineticConnectScreen> with Ticker
           boxShadow: [
             if (isSuccess)
               BoxShadow(
-                color: const Color(0xFFE50914).withOpacity(0.6), 
+                color: const Color(0xFFE50914).withValues(alpha: 0.6), 
                 blurRadius: 60, 
                 spreadRadius: 20,
                 offset: Offset(lightX, lightY) // Apply Gyro offset!
               )
             else ...[
               BoxShadow(
-                color: const Color(0xFFE50914).withOpacity(0.9), 
+                color: const Color(0xFFE50914).withValues(alpha: 0.9), 
                 blurRadius: 40, 
                 spreadRadius: 15 
               ),
@@ -681,11 +681,11 @@ class _AlchemicalDustPainter extends CustomPainter {
     final double dustOpacity = 1.0 - Curves.easeIn.transform(fadeOut);
 
     final glowPaint = Paint()
-      ..color = const Color(0xFFE50914).withOpacity(dustOpacity * 0.8)
+      ..color = const Color(0xFFE50914).withValues(alpha: dustOpacity * 0.8)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.0);
       
     final corePaint = Paint()
-      ..color = Colors.white.withOpacity(dustOpacity);
+      ..color = Colors.white.withValues(alpha: dustOpacity);
 
     final int dustCount = 200;
     
@@ -731,7 +731,7 @@ class _EmberPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFE50914).withOpacity(0.4)
+      ..color = const Color(0xFFE50914).withValues(alpha: 0.4)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
     
     final random = Random(42); 
@@ -772,7 +772,7 @@ class _RedStringPainter extends CustomPainter {
 
     // Elegant, realistic bright red glow
     final glowingPaint = Paint()
-      ..color = const Color(0xFFE50914).withOpacity(0.7)
+      ..color = const Color(0xFFE50914).withValues(alpha: 0.7)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4.0
       ..strokeCap = StrokeCap.round
@@ -787,7 +787,7 @@ class _RedStringPainter extends CustomPainter {
       
     // Super crisp central light specular
     final sparkPaint = Paint()
-      ..color = Colors.white.withOpacity(0.9)
+      ..color = Colors.white.withValues(alpha: 0.9)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.5
       ..strokeCap = StrokeCap.round;
