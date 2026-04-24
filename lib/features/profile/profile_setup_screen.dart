@@ -166,6 +166,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _bioController.dispose();
     super.dispose();
   }
+
   void _confirmDeleteAccount(BuildContext ctx) {
     final confirmController = TextEditingController();
     showDialog(
@@ -754,41 +755,62 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       const SizedBox(height: 32),
 
                       // ── EULA Agreement ──
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Checkbox(
-                            value: _eulaAccepted,
-                            onChanged: (v) =>
-                                setState(() => _eulaAccepted = v ?? false),
-                            activeColor: theme.colorScheme.primary,
-                            checkColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 24),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _eulaAccepted
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.outline.withValues(
+                                    alpha: 0.5,
+                                  ),
                           ),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(
-                                () => _eulaAccepted = !_eulaAccepted,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Checkbox(
+                              value: _eulaAccepted,
+                              onChanged: (v) =>
+                                  setState(() => _eulaAccepted = v ?? false),
+                              activeColor: theme.colorScheme.primary,
+                              checkColor: Colors.black,
+                              side: BorderSide(
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.6,
+                                ),
+                                width: 2,
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.only(top: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setState(
+                                  () => _eulaAccepted = !_eulaAccepted,
+                                ),
                                 child: Text(
                                   'I agree to the Terms of Service and acknowledge '
                                   'that my profile information will be shared with '
                                   'nearby devices via Bluetooth.',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
+                                    color: theme.colorScheme.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.4,
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
 
                       // ── Submit button ──
                       SizedBox(
@@ -801,7 +823,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 : theme.colorScheme.surfaceContainerHighest,
                             foregroundColor: _eulaAccepted
                                 ? Colors.black
-                                : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                                : theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.4,
+                                  ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(32),
                             ),

@@ -119,7 +119,7 @@ class BleService extends GetxService {
           }
         } else {
           // Android 11 and below: Need Location + legacy Bluetooth
-          final location = await Permission.locationWhenInUse.request();
+          final location = await Permission.location.request();
           final ble = await Permission.bluetooth.request();
           if (!location.isGranted || !ble.isGranted) {
             return false;
@@ -127,7 +127,7 @@ class BleService extends GetxService {
 
           // On older Androids, Location services (device-level toggle) must be enabled
           final locationService =
-              await Permission.locationWhenInUse.serviceStatus;
+              await Permission.location.serviceStatus;
           if (!locationService.isEnabled) {
             Get.log('BleService: location services are disabled.');
             return false;
@@ -164,7 +164,7 @@ class BleService extends GetxService {
       if (androidInfo.version.sdkInt >= 31) {
         return true; // Modern Android does not require device-level location for BLE
       }
-      final status = await Permission.locationWhenInUse.serviceStatus;
+      final status = await Permission.location.serviceStatus;
       return status.isEnabled;
     } catch (e) {
       Get.log('BleService: failed to read location service status – $e');
