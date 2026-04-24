@@ -8,6 +8,7 @@ import '../../core/models/ble_models.dart';
 import '../../core/models/connection.dart';
 import '../../core/constants/assets.dart';
 import '../chat/chat_screen.dart';
+import '../connections/kinetic_connect_screen.dart';
 import 'nearby_controller.dart';
 
 /// Displays nearby BLE peers discovered via the Zero-GATT protocol
@@ -126,6 +127,11 @@ class _NearbyScreenState extends State<NearbyScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.sensors),
+            tooltip: 'Kinetic Bump',
+            onPressed: () => Get.to(() => const KineticConnectScreen(), transition: Transition.cupertino),
+          ),
           if (kDebugMode)
             IconButton(
               icon: const Icon(Icons.bug_report_outlined),

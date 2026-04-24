@@ -614,19 +614,21 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
   ///
   /// This is used to manually trigger an accept response to a peer we
   /// previously requested to connect with.
-  Future<void> sendAcceptRequest(String targetHash) async {
+  Future<void> sendAcceptRequest(String targetHash, {bool silent = false}) async {
     try {
       // ── Per-session limits — auto-stop handles the UI, just guard here ─
       if (_isSessionLimitReached) return;
 
       // Fix #1 — Prevent overwriting an in-flight request.
       if (pendingRequestTarget.value != null) {
-        Get.snackbar(
-          'Request In Progress',
-          'Wait for your current request to complete before sending another.',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 2),
-        );
+        if (!silent) {
+          Get.snackbar(
+            'Request In Progress',
+            'Wait for your current request to complete before sending another.',
+            snackPosition: SnackPosition.BOTTOM,
+            duration: const Duration(seconds: 2),
+          );
+        }
         return;
       }
 
@@ -665,12 +667,14 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
         ),
       );
 
-      Get.snackbar(
-        'Connection Accepted',
-        'You are now connected with ${displayPeerId(targetHash)}.',
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-      );
+      if (!silent) {
+        Get.snackbar(
+          'Connection Accepted',
+          'You are now connected with ${displayPeerId(targetHash)}.',
+          snackPosition: SnackPosition.BOTTOM,
+          duration: const Duration(seconds: 2),
+        );
+      }
 
       // Revert to presence after 10 seconds.
       _revertToPresenceTimer?.cancel();

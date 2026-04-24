@@ -245,17 +245,7 @@ class _ChatScreenState extends State<ChatScreen> {
             // ── Messages list ──
             Expanded(
               child: reversedMessages.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No messages yet.\nSay hello! 👋',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.5,
-                          ),
-                        ),
-                      ),
-                    )
+                  ? _buildEmptyBindingState(context, theme, _controller.otherProfile.value)
                   : ListView.builder(
                       controller: _scrollController,
                       reverse: true, // Anchor to bottom
@@ -345,6 +335,66 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         );
       }),
+    );
+  }
+
+  Widget _buildEmptyBindingState(BuildContext context, ThemeData theme, dynamic profile) {
+    final avatarId = profile?.avatarId ?? 0;
+    final photoUrl = profile?.photoUrl;
+
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // 1. Hovering cinematic avatar
+          Container(
+            width: 130,
+            height: 130,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFE50914).withValues(alpha: 0.5),
+                  blurRadius: 50,
+                  spreadRadius: 10,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+              image: DecorationImage(
+                image: photoUrl != null
+                    ? CachedNetworkImageProvider(photoUrl)
+                    : AssetImage(AppAssets.getAvatarPath(avatarId))
+                        as ImageProvider,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          
+          // 2. Lore typography
+          Text(
+            'Your strands are bound.',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 48),
+            child: Text(
+              'This is a secure, offline, peer-to-peer channel. As long as you remain in physical proximity, nothing you send touches the cloud.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
