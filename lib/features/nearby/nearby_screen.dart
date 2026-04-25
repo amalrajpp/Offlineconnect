@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:offline_connect/core/constants/bio_constants.dart';
 
 import '../../core/models/ble_models.dart';
 import '../../core/models/connection.dart';
@@ -890,10 +889,7 @@ class _NearbyScreenState extends State<NearbyScreen>
       desc += '. ';
     }
 
-    final category = getGenderName(peer.gender);
-    final subCategory = getNativityName(peer.nativity);
-
-    return '$desc Currently into: $category -> $subCategory'.trim();
+    return desc.isEmpty ? 'No outfit details shared.' : desc.trim();
   }
 }
 

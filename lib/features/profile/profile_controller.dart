@@ -10,37 +10,30 @@ import '../../core/services/identity_service.dart';
 import '../../core/services/local_db_service.dart';
 import '../nearby/nearby_controller.dart';
 
-/// Manages the user's own profile — display name, bio, and photo.
-///
-/// Saves locally (SQLite) for offline access and syncs to Firestore
-/// when online so other connected users can see the profile.
 class ProfileController extends GetxController {
   final IdentityService _identity = Get.find<IdentityService>();
   final LocalDbService _db = Get.find<LocalDbService>();
   final FirebaseSyncService _firebase = Get.find<FirebaseSyncService>();
   final ImagePicker _imagePicker = ImagePicker();
 
-  /// EULA Agreement required for UGC compliance.
   final RxBool hasAcceptedEULA = false.obs;
-
-  /// The user's own profile. Observable so the UI updates reactively.
   final Rx<UserProfile?> profile = Rx<UserProfile?>(null);
-
-  /// Whether a photo upload is in progress.
   final RxBool isUploadingPhoto = false.obs;
 
-  /// Whether the profile has been set up (has a display name).
   bool get isProfileSetUp => profile.value != null;
-
   String get _myOfflineId => _identity.identity.offlineId;
 
   @override
   void onInit() {
     super.onInit();
     _loadLocalProfile();
+    _loadEulaState();
   }
 
-  /// Loads the profile from local DB.
+  Future<void> _loadEulaState() async {
+    hasAcceptedEULA.value = await _identity.getEulaAccepted();
+  }
+
   Future<void> _loadLocalProfile() async {
     try {
       final db = await _db.database;
@@ -58,71 +51,55 @@ class ProfileController extends GetxController {
     }
   }
 
-  /// Saves or updates the user's profile.
-  ///
-  /// Persists locally first (always works), then syncs to Firestore
-  /// if Firebase is available.
   Future<void> saveProfile({
     required String username,
     required String displayName,
-    required int avatarId,
+    required int topStyle,
+    required int hairColor,
+    required int eyeStyle,
+    required int eyebrowType,
+    required int mouthType,
+    required int skinColor,
+    required int facialHairType,
+    required int accessoriesType,
     required int topWearColor,
     required int bottomWearColor,
-    required int gender,
-    required int nativity,
     String? bio,
     String? photoUrl,
   }) async {
     if (!hasAcceptedEULA.value) {
-      Get.snackbar(
-        'EULA Required',
-        'You must agree to the End User License Agreement to continue.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Get.snackbar('EULA Required', 'You must agree to the EULA to continue.');
       return;
     }
-    // ── BITWISE FIREWALL ASSERTIONS ─────────────────────────────────────────
-    // These guarantee our integers never exceed the bit-length we allocate
-    // in the manufacturer data payload. If they do, the payload will silently
-    // overflow or corrupt, destroying the mesh visibility logic.
-    assert(
-      avatarId >= 0 && avatarId <= 255,
-      'Avatar ID overflow - must fit 8 bits (0-255)',
-    );
-    assert(
-      topWearColor >= 0 && topWearColor <= 15,
-      'Top color overflow - must fit 4 bits (0-15)',
-    );
-    assert(
-      bottomWearColor >= 0 && bottomWearColor <= 15,
-      'Bottom color overflow - must fit 4 bits (0-15)',
-    );
-    assert(
-      gender >= 0 && gender <= 7,
-      'Gender overflow - must fit 3 bits (0-7)',
-    );
-    assert(
-      nativity >= 0 && nativity <= 31,
-      'Nativity overflow - must fit 5 bits (0-31)',
-    );
-    // ────────────────────────────────────────────────────────────────────────
+    await _identity.setEulaAccepted(true);
+
+    // ── BITWISE FIREWALL ASSERTIONS (Fluttermoji) ──────────────────────────
+    assert(topStyle >= 0 && topStyle <= 63);
+    assert(hairColor >= 0 && hairColor <= 15);
+    assert(eyeStyle >= 0 && eyeStyle <= 15);
+    assert(eyebrowType >= 0 && eyebrowType <= 15);
+    assert(mouthType >= 0 && mouthType <= 15);
+    assert(skinColor >= 0 && skinColor <= 15);
+    assert(facialHairType >= 0 && facialHairType <= 7);
+    assert(accessoriesType >= 0 && accessoriesType <= 7);
+    assert(topWearColor >= 0 && topWearColor <= 15);
+    assert(bottomWearColor >= 0 && bottomWearColor <= 15);
 
     final trimmedName = displayName.trim();
     final trimmedUsername = username.trim();
-    if (trimmedName.isEmpty || trimmedName.length > 30) return;
-    if (trimmedUsername.isEmpty || trimmedUsername.length > 10) return;
+    if (trimmedName.isEmpty || trimmedUsername.isEmpty) return;
 
     await _identity.setUsername(trimmedUsername);
 
     int avatarDna = AvatarDNA.pack(
-      hairStyle: avatarId,
-      hairColor: 0,
-      eyeShape: gender,
-      eyeColor: 0,
-      mouthShape: 0,
-      noseShape: nativity,
-      skinTone: 0,
-      extras: 0,
+      topStyle: topStyle,
+      hairColor: hairColor,
+      eyeStyle: eyeStyle,
+      eyebrowType: eyebrowType,
+      mouthType: mouthType,
+      skinColor: skinColor,
+      facialHairType: facialHairType,
+      accessoriesType: accessoriesType,
     );
 
     await _identity.setTraits(
@@ -139,42 +116,22 @@ class ProfileController extends GetxController {
       avatarDna: avatarDna,
     );
 
-    // Save locally.
     await _db.upsertKnownUser(newProfile);
     profile.value = newProfile;
-
-    // Sync to Firestore in the background (fire-and-forget).
     _firebase.syncProfile(newProfile);
 
-    // If currently broadcasting our presence via BLE, refresh it silently
-    // so peers instantly pick up our latest clothing or avatar traits.
     if (Get.isRegistered<NearbyController>()) {
       Get.find<NearbyController>().refreshBroadcast();
     }
   }
 
-  /// Picks a photo from the gallery and uploads it to Firebase Storage.
-  ///
-  /// Returns the download URL on success, or `null` on failure.
   Future<String?> pickAndUploadPhoto() async {
     try {
-      final picked = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 80,
-      );
+      final picked = await _imagePicker.pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512);
       if (picked == null) return null;
-
       isUploadingPhoto.value = true;
-
-      final url = await _firebase.uploadProfilePhoto(
-        _myOfflineId,
-        File(picked.path),
-      );
-
+      final url = await _firebase.uploadProfilePhoto(_myOfflineId, File(picked.path));
       if (url != null) {
-        // Update local profile with the new photo URL.
         final current = profile.value;
         if (current != null) {
           final updated = current.copyWith(photoUrl: url);
@@ -182,7 +139,6 @@ class ProfileController extends GetxController {
           profile.value = updated;
         }
       }
-
       return url;
     } catch (e) {
       Get.log('ProfileController: pickAndUploadPhoto failed – $e');
@@ -192,7 +148,6 @@ class ProfileController extends GetxController {
     }
   }
 
-  /// Syncs the local profile to Firestore (call when connectivity resumes).
   Future<void> syncToCloud() async {
     final p = profile.value;
     if (p == null) return;

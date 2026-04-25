@@ -2,12 +2,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/models/avatar_dna.dart';
+import 'avatar_dna_selection_screen.dart';
+import '../nearby/widgets/remote_avatar_view.dart';
 
 import 'profile_controller.dart';
 import '../../core/services/identity_service.dart';
 import '../../core/services/firebase_sync_service.dart';
 import '../../core/services/local_db_service.dart';
-import '../../core/constants/bio_constants.dart';
+
 import '../../core/constants/assets.dart';
 
 /// One-time profile setup screen shown on first launch.
@@ -27,79 +29,27 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _nameController = TextEditingController();
   final _bioController = TextEditingController();
   bool _saving = false;
-  bool _isLoading = true; // Added loading state back per request
+  bool _isLoading = true;
   String? _photoUrl;
 
-  int _avatarId = 0;
-  int _topWearColor = 0;
-  int _bottomWearColor = 0;
-  int _gender = 0;
-  int _nativity = 0;
-  bool _eulaAccepted = false;
+  // New trait keys for 32-bit DNA (Observable)
+  final _topStyle = 0.obs;
+  final _hairColor = 0.obs;
+  final _eyeStyle = 0.obs;
+  final _eyebrowType = 0.obs;
+  final _mouthType = 0.obs;
+  final _skinColor = 0.obs;
+  final _facialHairType = 0.obs;
+  final _accessoriesType = 0.obs;
 
-  // Cached constants for faster building
-  static const List<String> _outfitColors = [
-    "None/Hide",
-    "Black",
-    "White",
-    "Gray",
-    "Red",
-    "Blue",
-    "Green",
-    "Yellow",
-    "Orange",
-    "Purple",
-    "Pink",
-    "Brown",
-    "Beige",
-    "Multicolor",
-    "Denim",
-    "Other",
-  ];
-
-  late final List<DropdownMenuItem<int>> _outfitColorItems;
-  late final List<DropdownMenuItem<int>> _fieldItems;
-  final Map<int, List<DropdownMenuItem<int>>> _subfieldItemsCache = {};
+  final _topWearColor = 0.obs;
+  final _bottomWearColor = 0.obs;
 
   @override
   void initState() {
     super.initState();
     _initIdentity();
-    _buildDropdownCaches();
     _preloadAssets();
-  }
-
-  void _buildDropdownCaches() {
-    _outfitColorItems = _outfitColors.asMap().entries.map((e) {
-      return DropdownMenuItem<int>(
-        value: e.key,
-        child: Text(e.value, overflow: TextOverflow.ellipsis),
-      );
-    }).toList();
-
-    _fieldItems = List.generate(
-      genderOptions.length,
-      (index) => DropdownMenuItem(
-        value: index,
-        child: Text(getGenderName(index), overflow: TextOverflow.ellipsis),
-      ),
-    );
-  }
-
-  List<DropdownMenuItem<int>> _getSubfieldItems(int fieldIndex) {
-    if (_subfieldItemsCache.containsKey(fieldIndex)) {
-      return _subfieldItemsCache[fieldIndex]!;
-    }
-    final len = nativityOptions.length;
-    final items = List.generate(
-      len,
-      (idx) => DropdownMenuItem(
-        value: idx,
-        child: Text(getNativityName(idx), overflow: TextOverflow.ellipsis),
-      ),
-    );
-    _subfieldItemsCache[fieldIndex] = items;
-    return items;
   }
 
   void _initIdentity() {
@@ -107,60 +57,33 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       final identity = Get.find<IdentityService>().identity;
       _usernameController.text = identity.username;
 
-      final avatarDna = AvatarDNA.unpack(identity.avatarDna);
+      final dna = AvatarDNA.unpack(identity.avatarDna);
 
-      _avatarId = avatarDna['hairStyle'] ?? 0;
-      if (_avatarId < 0 || _avatarId >= AppAssets.maxAvatars) _avatarId = 0;
+      _topStyle.value = dna['topStyle'] ?? 0;
+      _hairColor.value = dna['hairColor'] ?? 0;
+      _eyeStyle.value = dna['eyeStyle'] ?? 0;
+      _eyebrowType.value = dna['eyebrowType'] ?? 0;
+      _mouthType.value = dna['mouthType'] ?? 0;
+      _skinColor.value = dna['skinColor'] ?? 0;
+      _facialHairType.value = dna['facialHairType'] ?? 0;
+      _accessoriesType.value = dna['accessoriesType'] ?? 0;
 
-      _topWearColor = identity.topWearColor;
-      if (_topWearColor < 0 || _topWearColor > 15) _topWearColor = 0;
+      _topWearColor.value = identity.topWearColor;
+      _bottomWearColor.value = identity.bottomWearColor;
 
-      _bottomWearColor = identity.bottomWearColor;
-      if (_bottomWearColor < 0 || _bottomWearColor > 15) _bottomWearColor = 0;
-
-      _gender = avatarDna['eyeShape'] ?? 0;
-      if (_gender < 0 || _gender >= genderOptions.length) _gender = 0;
-
-      _nativity = avatarDna['noseShape'] ?? 0;
-      final subLen = nativityOptions.length;
-      if (_nativity < 0 || _nativity >= subLen) _nativity = 0;
-
-      // Pre-fill display name, bio, and photo from saved profile.
       final controller = Get.find<ProfileController>();
       final existing = controller.profile.value;
       if (existing != null) {
         _nameController.text = existing.displayName;
         _bioController.text = existing.bio ?? '';
         _photoUrl = existing.photoUrl;
-        _eulaAccepted = controller.hasAcceptedEULA.value;
       }
     } catch (_) {}
   }
 
   Future<void> _preloadAssets() async {
     await Future.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-
-    final futures = <Future<void>>[];
-    for (int i = 0; i < AppAssets.maxAvatars; i++) {
-      futures.add(
-        precacheImage(
-          ResizeImage(
-            AssetImage(AppAssets.getAvatarPath(i)),
-            width: 144,
-            height: 144,
-          ),
-          context,
-        ),
-      );
-    }
-    await Future.wait(futures);
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
@@ -169,79 +92,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _nameController.dispose();
     _bioController.dispose();
     super.dispose();
-  }
-
-  void _confirmDeleteAccount(BuildContext ctx) {
-    final confirmController = TextEditingController();
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Delete Account'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'This will permanently delete your profile, all connections, '
-              'and chat history. This action cannot be undone.\n\n'
-              'Type DELETE to confirm:',
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: confirmController,
-              decoration: const InputDecoration(
-                hintText: 'DELETE',
-                border: OutlineInputBorder(),
-              ),
-              textCapitalization: TextCapitalization.characters,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              if (confirmController.text.trim().toUpperCase() != 'DELETE') {
-                Get.snackbar(
-                  'Confirmation Required',
-                  'Please type DELETE to confirm account deletion.',
-                  snackPosition: SnackPosition.BOTTOM,
-                );
-                return;
-              }
-              Navigator.pop(dialogCtx);
-
-              final identity = Get.find<IdentityService>();
-              final firebase = Get.find<FirebaseSyncService>();
-              final db = Get.find<LocalDbService>();
-
-              // 1. Wipe cloud data.
-              await firebase.deleteAccount(identity.identity.offlineId);
-
-              // 2. Wipe local database.
-              await db.wipeDatabase();
-
-              // 3. Clear identity.
-              await identity.wipeIdentity();
-
-              // 4. Restart app flow.
-              Get.snackbar(
-                'Account Deleted',
-                'All your data has been removed.',
-                snackPosition: SnackPosition.BOTTOM,
-              );
-              // Navigate to root and force re-initialization.
-              Get.offAllNamed('/');
-            },
-            child: const Text('Delete Everything'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _pickPhoto() async {
@@ -254,61 +104,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-
     setState(() => _saving = true);
 
     try {
       final controller = Get.find<ProfileController>();
-      controller.hasAcceptedEULA.value = _eulaAccepted;
       await controller.saveProfile(
         username: _usernameController.text,
         displayName: _nameController.text,
-        avatarId: _avatarId,
-        topWearColor: _topWearColor,
-        bottomWearColor: _bottomWearColor,
-        gender: _gender,
-        nativity: _nativity,
+        topStyle: _topStyle.value,
+        hairColor: _hairColor.value,
+        eyeStyle: _eyeStyle.value,
+        eyebrowType: _eyebrowType.value,
+        mouthType: _mouthType.value,
+        skinColor: _skinColor.value,
+        facialHairType: _facialHairType.value,
+        accessoriesType: _accessoriesType.value,
+        topWearColor: _topWearColor.value,
+        bottomWearColor: _bottomWearColor.value,
         bio: _bioController.text,
         photoUrl: _photoUrl,
       );
       widget.onComplete();
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to save profile: $e',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      Get.snackbar('Error', 'Failed to save profile: $e', snackPosition: SnackPosition.BOTTOM);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-
-  // ── Bold UI Helpers ──
-
-  InputDecoration _flatInputDecoration(
-    String label,
-    String hint,
-    IconData icon,
-    ThemeData theme,
-  ) {
-    return InputDecoration(
-      labelText: label,
-      hintText: hint,
-      filled: true,
-      fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
-        alpha: 0.5,
-      ),
-      prefixIcon: Icon(icon, color: theme.colorScheme.onSurfaceVariant),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(20),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(20),
-        borderSide: BorderSide(color: theme.colorScheme.onSurface, width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-    );
   }
 
   Widget _buildFlatCard({required Widget child, required ThemeData theme}) {
@@ -317,9 +138,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       decoration: BoxDecoration(
         color: theme.cardTheme.color ?? theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
       ),
       child: child,
     );
@@ -335,546 +154,129 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text(
-          'Create Identity',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            color: theme.colorScheme.onSurface,
-          ),
-        ),
+        title: Text('Create Identity', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
         centerTitle: true,
       ),
       body: _isLoading
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Spacer(),
-                  Image.asset(
-                    AppAssets.getAvatarPath(0),
-                    width: 72,
-                    height: 72,
-                  ),
-                  const SizedBox(height: 24),
-                  CircularProgressIndicator(
-                    color: theme.colorScheme.primary,
-                    strokeWidth: 4,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Loading virtual closet...',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                ],
-              ),
-            )
+          ? const Center(child: CircularProgressIndicator())
           : SafeArea(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.all(24),
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        'This is how nearby devices will discover you.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      // Photo
+                      GestureDetector(
+                        onTap: _pickPhoto,
+                        child: Obx(() {
+                          final uploading = controller.isUploadingPhoto.value;
+                          return CircleAvatar(
+                            radius: 56,
+                            backgroundImage: _photoUrl != null ? CachedNetworkImageProvider(_photoUrl!) : null,
+                            child: uploading ? CircularProgressIndicator() : (_photoUrl == null ? Icon(Icons.person, size: 48) : null),
+                          );
+                        }),
                       ),
                       const SizedBox(height: 32),
 
-                      _buildFlatCard(
-                        theme: theme,
-                        child: Column(
-                          children: [
-                            // ── Photo picker ──
-                            GestureDetector(
-                              onTap: _pickPhoto,
-                              child: Obx(() {
-                                final uploading =
-                                    controller.isUploadingPhoto.value;
-                                return Stack(
-                                  alignment: Alignment.bottomRight,
-                                  children: [
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: theme.colorScheme.onSurface,
-                                          width: 3,
-                                        ),
-                                      ),
-                                      child: CircleAvatar(
-                                        radius: 56,
-                                        backgroundColor: theme
-                                            .colorScheme
-                                            .surfaceContainerHighest,
-                                        backgroundImage: _photoUrl != null
-                                            ? CachedNetworkImageProvider(
-                                                _photoUrl!,
-                                              )
-                                            : null,
-                                        child: _photoUrl == null && !uploading
-                                            ? Icon(
-                                                Icons.person,
-                                                size: 48,
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                              )
-                                            : uploading
-                                            ? const CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              )
-                                            : null,
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: theme
-                                            .colorScheme
-                                            .primary, // Snapchat Yellow
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: theme.colorScheme.surface,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      child: Icon(
-                                        Icons.camera_alt,
-                                        size: 20,
-                                        color: theme.colorScheme.onPrimary,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              }),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'Tap to add photo',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-
-                            const SizedBox(height: 32),
-
-                            // ── Offline Avatar Picker ──
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Offline Radar Avatar',
-                                style: TextStyle(
-                                  color: theme.colorScheme.onSurface,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              height: 90,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: AppAssets.maxAvatars,
-                                itemBuilder: (context, index) {
-                                  final isSelected = _avatarId == index;
-                                  return GestureDetector(
-                                    onTap: () =>
-                                        setState(() => _avatarId = index),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 200,
-                                      ),
-                                      margin: const EdgeInsets.only(right: 16),
-                                      transform: Matrix4.diagonal3Values(
-                                        isSelected ? 1.0 : 0.9,
-                                        isSelected ? 1.0 : 0.9,
-                                        1.0,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: isSelected
-                                              ? theme.colorScheme.primary
-                                              : Colors.transparent,
-                                          width: isSelected ? 4 : 0,
-                                        ),
-                                      ),
-                                      child: CircleAvatar(
-                                        radius: 36,
-                                        backgroundImage: ResizeImage(
-                                          AssetImage(
-                                            AppAssets.getAvatarPath(index),
-                                          ),
-                                          width: 144,
-                                          height: 144,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // ── Bio Inputs ──
-                      _buildFlatCard(
-                        theme: theme,
-                        child: Column(
-                          children: [
-                            TextFormField(
-                              controller: _usernameController,
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLength: 10,
-                              decoration: _flatInputDecoration(
-                                'Offline Handle',
-                                '@NightOwl',
-                                Icons.alternate_email,
-                                theme,
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Required for offline discovery';
-                                }
-                                if (!RegExp(
-                                  r'^[a-zA-Z0-9_]+$',
-                                ).hasMatch(value)) {
-                                  return 'Only letters, numbers, and underscores';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _nameController,
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLength: 30,
-                              textCapitalization: TextCapitalization.words,
-                              decoration: _flatInputDecoration(
-                                'Display Name',
-                                'How should people know you?',
-                                Icons.badge_outlined,
-                                theme,
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Please enter a display name';
-                                }
-                                if (value.trim().length < 2) {
-                                  return 'Name must be at least 2 characters';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _bioController,
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLength: 100,
-                              maxLines: 2,
-                              textCapitalization: TextCapitalization.sentences,
-                              decoration: _flatInputDecoration(
-                                'Bio (optional)',
-                                'A short tagline about you',
-                                Icons.info_outline,
-                                theme,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // ── Outfit Colors Inputs ──
-                      _buildFlatCard(
-                        theme: theme,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              'Outfit Colors',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 18,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: DropdownButtonFormField<int>(
-                                    isExpanded: true,
-                                    dropdownColor: theme.colorScheme.surface,
-                                    style: TextStyle(
-                                      color: theme.colorScheme.onSurface,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    initialValue: _topWearColor,
-                                    decoration: _flatInputDecoration(
-                                      'Top Color',
-                                      '',
-                                      Icons.checkroom,
-                                      theme,
-                                    ),
-                                    items: _outfitColorItems,
-                                    onChanged: (v) =>
-                                        setState(() => _topWearColor = v ?? 0),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: DropdownButtonFormField<int>(
-                                    isExpanded: true,
-                                    dropdownColor: theme.colorScheme.surface,
-                                    style: TextStyle(
-                                      color: theme.colorScheme.onSurface,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    initialValue: _bottomWearColor,
-                                    decoration: _flatInputDecoration(
-                                      'Bottom Color',
-                                      '',
-                                      Icons.dry_cleaning,
-                                      theme,
-                                    ),
-                                    items: _outfitColorItems,
-                                    onChanged: (v) => setState(
-                                      () => _bottomWearColor = v ?? 0,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // ── Vibe Inputs ──
-                      _buildFlatCard(
-                        theme: theme,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Text(
-                              'Your Vibe',
-                              style: TextStyle(
-                                color: theme.colorScheme.onSurface,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 18,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: DropdownButtonFormField<int>(
-                                    isExpanded: true,
-                                    dropdownColor: theme.colorScheme.surface,
-                                    style: TextStyle(
-                                      color: theme.colorScheme.onSurface,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    initialValue: _gender,
-                                    decoration: _flatInputDecoration(
-                                      'Field',
-                                      '',
-                                      Icons.category_rounded,
-                                      theme,
-                                    ),
-                                    items: _fieldItems,
-                                    onChanged: (v) {
-                                      if (v != null) {
-                                        setState(() {
-                                          _gender = v;
-                                          _nativity = 0;
-                                        });
-                                      }
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: DropdownButtonFormField<int>(
-                                    isExpanded: true,
-                                    dropdownColor: theme.colorScheme.surface,
-                                    style: TextStyle(
-                                      color: theme.colorScheme.onSurface,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    key: ValueKey(
-                                      'subfields_for_$_gender',
-                                    ), // Force rebuild of dropdown when items change
-                                    initialValue: _nativity,
-                                    decoration: _flatInputDecoration(
-                                      'Niche',
-                                      '',
-                                      Icons.tag_rounded,
-                                      theme,
-                                    ),
-                                    items: _getSubfieldItems(_gender),
-                                    onChanged: (v) {
-                                      if (v != null) {
-                                        setState(() => _nativity = v);
-                                      }
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // ── EULA Agreement ──
-                      Container(
-                        margin: const EdgeInsets.symmetric(vertical: 24),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: _eulaAccepted
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.outline.withValues(
-                                    alpha: 0.5,
-                                  ),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Checkbox(
-                              value: _eulaAccepted,
-                              onChanged: (v) =>
-                                  setState(() => _eulaAccepted = v ?? false),
-                              activeColor: theme.colorScheme.primary,
-                              checkColor: Colors.black,
-                              side: BorderSide(
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.6,
-                                ),
-                                width: 2,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => setState(
-                                  () => _eulaAccepted = !_eulaAccepted,
-                                ),
-                                child: Text(
-                                  'I agree to the Terms of Service and acknowledge '
-                                  'that my profile information will be shared with '
-                                  'nearby devices via Bluetooth.',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurface,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      // ── Submit button ──
-                      SizedBox(
-                        width: double.infinity,
-                        height: 64,
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: _eulaAccepted
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.surfaceContainerHighest,
-                            foregroundColor: _eulaAccepted
-                                ? Colors.black
-                                : theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.4,
-                                  ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(32),
-                            ),
-                          ),
-                          onPressed: (_saving || !_eulaAccepted) ? null : _save,
-                          child: _saving
-                              ? const SizedBox(
-                                  width: 28,
-                                  height: 28,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 3,
-                                    color: Colors.black,
-                                  ),
-                                )
-                              : const Text(
-                                  'Save & Update Radar',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // ── Delete Account ──
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: () => _confirmDeleteAccount(context),
-                          icon: Icon(
-                            Icons.delete_forever,
-                            color: theme.colorScheme.error,
-                            size: 18,
-                          ),
-                          label: Text(
-                            'Delete Account',
-                            style: TextStyle(
-                              color: theme.colorScheme.error,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
+                      // Username
+                      TextFormField(
+                        controller: _usernameController,
+                        decoration: InputDecoration(labelText: 'Offline Username', hintText: 'e.g. Satoshi'),
+                        validator: (v) => v == null || v.isEmpty ? 'Required' : null,
                       ),
                       const SizedBox(height: 16),
+
+                      // DNA
+                      _buildFlatCard(
+                        theme: theme,
+                        child: Column(
+                          children: [
+                            Obx(() {
+                              final currentDna = AvatarDNA.pack(
+                                topStyle: _topStyle.value,
+                                hairColor: _hairColor.value,
+                                eyeStyle: _eyeStyle.value,
+                                eyebrowType: _eyebrowType.value,
+                                mouthType: _mouthType.value,
+                                skinColor: _skinColor.value,
+                                facialHairType: _facialHairType.value,
+                                accessoriesType: _accessoriesType.value,
+                              );
+                              return Row(
+                                children: [
+                                  RemoteAvatarView(
+                                    dna: currentDna,
+                                    radius: 40,
+                                  ),
+                                  const SizedBox(width: 20),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('AVATAR DNA', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),
+                                        Text('DNA: 0x${currentDna.toRadixString(16).toUpperCase().padLeft(8, '0')}', 
+                                            style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace')),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () async {
+                                  final result = await Get.to<Map<String, int>>(() => const AvatarDnaSelectionScreen());
+                                  if (result != null) {
+                                    _topStyle.value = result['topStyle'] ?? 0;
+                                    _hairColor.value = result['hairColor'] ?? 0;
+                                    _eyeStyle.value = result['eyeStyle'] ?? 0;
+                                    _eyebrowType.value = result['eyebrowType'] ?? 0;
+                                    _mouthType.value = result['mouthType'] ?? 0;
+                                    _skinColor.value = result['skinColor'] ?? 0;
+                                    _facialHairType.value = result['facialHairType'] ?? 0;
+                                    _accessoriesType.value = result['accessoriesType'] ?? 0;
+                                  }
+                                },
+                                icon: const Icon(Icons.fingerprint),
+                                label: const Text('CONFIGURE DNA'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // EULA (Only show if not already accepted)
+                      Obx(() => controller.hasAcceptedEULA.value 
+                        ? const SizedBox.shrink() 
+                        : Column(
+                            children: [
+                              CheckboxListTile(
+                                title: Text('I agree to the Terms and EULA', style: TextStyle(fontSize: 12)),
+                                value: controller.hasAcceptedEULA.value,
+                                onChanged: (v) => controller.hasAcceptedEULA.value = v ?? false,
+                                controlAffinity: ListTileControlAffinity.leading,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                          )),
+
+                      // Save
+                      Obx(() {
+                        final canSave = !_saving && controller.hasAcceptedEULA.value;
+                        return SizedBox(
+                          width: double.infinity,
+                          height: 64,
+                          child: FilledButton(
+                            onPressed: canSave ? _save : null,
+                            child: _saving ? const CircularProgressIndicator(color: Colors.white) : const Text('Save & Update Radar'),
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),

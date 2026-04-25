@@ -541,7 +541,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       await _ble.broadcastState(
         _identity.identity,
         BleIntent.requestConnection,
-        targetHash: targetHash,
+        targetId: targetHash,
       );
 
       // Save an outgoing pending connection locally.
@@ -599,7 +599,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
         _ble.broadcastState(
           _identity.identity,
           BleIntent.requestConnection,
-          targetHash: targetHash,
+          targetId: targetHash,
         );
       });
 
@@ -644,7 +644,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       await _ble.broadcastState(
         _identity.identity,
         BleIntent.acceptConnection,
-        targetHash: targetHash,
+        targetId: targetHash,
       );
 
       // Persist the connection as accepted.
@@ -1047,7 +1047,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     _ble.broadcastState(
       _identity.identity,
       BleIntent.acceptConnection,
-      targetHash: target,
+      targetId: target,
     );
 
     // Keep this accept on-air for 10 seconds before moving to the next.
@@ -1230,8 +1230,6 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
         avatarDna: random.nextInt(256),
         topWearColor: random.nextInt(16),
         bottomWearColor: random.nextInt(16),
-        gender: random.nextInt(4), // genderOptions.length is 4
-        nativity: random.nextInt(28), // nativityOptions.length is 28
         intent: BleIntent.presence,
         rssi: -40 - random.nextInt(56), // Fluctuates between -40 and -95
         lastSeen: DateTime.now(),
@@ -1264,8 +1262,6 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       avatarDna: 0,
       topWearColor: 0,
       bottomWearColor: 0,
-      gender: 0,
-      nativity: 0,
       intent: BleIntent.requestConnection,
       targetHash:
           '$targetHash0${chars[random.nextInt(16)]}', // Hijacks 1st byte routing

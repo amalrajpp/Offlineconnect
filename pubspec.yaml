@@ -29,6 +29,8 @@ dependencies:
   collection: ^1.19.1
   sensors_plus: ^7.0.0
   vibration: ^3.1.8
+  fluttermoji: ^1.0.2
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

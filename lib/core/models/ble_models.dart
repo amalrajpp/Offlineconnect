@@ -15,21 +15,19 @@ class DiscoveredPeer {
   /// The platform-level BLE device identifier.
   final String deviceId;
 
-  /// The 12-char hex hash (first 6 bytes of offlineId) of the discovered peer.
+  /// The 4-byte hex hash of the discovered peer's offlineId.
   final String myHash;
 
   /// The target hash embedded in the advertisement (non-null when intent > 0).
   final String? targetHash;
 
-  /// The broadcasted 10-char username.
+  /// The broadcasted username (truncated to 12 bytes UTF-8 on Android).
   final String? offlineUsername;
 
   // ── Offline Bio Traits (32-bit Packed DNA) ──
   final int avatarDna;
   final int topWearColor;
   final int bottomWearColor;
-  final int gender;
-  final int nativity;
 
   /// The intent encoded in the advertisement payload.
   final BleIntent intent;
@@ -48,8 +46,6 @@ class DiscoveredPeer {
     this.avatarDna = 0,
     this.topWearColor = 0,
     this.bottomWearColor = 0,
-    this.gender = 0,
-    this.nativity = 0,
     required this.intent,
     required this.rssi,
     required this.lastSeen,
@@ -65,8 +61,6 @@ class DiscoveredPeer {
     int? avatarDna,
     int? topWearColor,
     int? bottomWearColor,
-    int? gender,
-    int? nativity,
   }) {
     return DiscoveredPeer(
       deviceId: deviceId,
@@ -76,8 +70,6 @@ class DiscoveredPeer {
       avatarDna: avatarDna ?? this.avatarDna,
       topWearColor: topWearColor ?? this.topWearColor,
       bottomWearColor: bottomWearColor ?? this.bottomWearColor,
-      gender: gender ?? this.gender,
-      nativity: nativity ?? this.nativity,
       intent: intent ?? this.intent,
       rssi: rssi ?? this.rssi,
       lastSeen: lastSeen ?? this.lastSeen,

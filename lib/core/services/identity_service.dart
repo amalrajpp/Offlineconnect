@@ -19,6 +19,7 @@ class IdentityService extends GetxService {
   static const _keyTopWearColor = 'offline_user_top_wear';
   static const _keyBottomWearColor = 'offline_user_bottom_wear';
   static const _keyLastWardrobeUpdate = 'offline_user_last_wardrobe_update';
+  static const _keyEulaAccepted = 'offline_user_eula_accepted';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -165,6 +166,15 @@ class IdentityService extends GetxService {
       topWearColor: topWearColor,
       bottomWearColor: bottomWearColor,
     );
+  }
+
+  Future<bool> getEulaAccepted() async {
+    final val = await _storage.read(key: _keyEulaAccepted);
+    return val == 'true';
+  }
+
+  Future<void> setEulaAccepted(bool accepted) async {
+    await _storage.write(key: _keyEulaAccepted, value: accepted.toString());
   }
 
   /// Clears the user identity and all secure storage completely. Required for UGC deletion.
