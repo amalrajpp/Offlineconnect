@@ -7,7 +7,7 @@ class FluttermojiDna {
   static String dnaToSvg(int dna) {
     final traits = AvatarDNA.unpack(dna);
     final functions = FluttermojiFunctions();
-    
+
     // Map our bit-packet keys back to Fluttermoji internal JSON keys
     final encoded = {
       'topType': traits['topStyle'],
@@ -24,7 +24,7 @@ class FluttermojiDna {
       'style': 0,
       'graphicType': 0,
     };
-    
+
     return functions.decodeFluttermojifromString(jsonEncode(encoded));
   }
 }

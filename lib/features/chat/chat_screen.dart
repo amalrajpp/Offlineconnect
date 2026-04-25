@@ -129,10 +129,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         backgroundColor: theme.colorScheme.primaryContainer,
                         backgroundImage: CachedNetworkImageProvider(photoUrl),
                       )
-                    : RemoteAvatarView(
-                        dna: avatarDna,
-                        radius: 18,
-                      ),
+                    : RemoteAvatarView(dna: avatarDna, radius: 18),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -248,7 +245,11 @@ class _ChatScreenState extends State<ChatScreen> {
             // ── Messages list ──
             Expanded(
               child: reversedMessages.isEmpty
-                  ? _buildEmptyBindingState(context, theme, _controller.otherProfile.value)
+                  ? _buildEmptyBindingState(
+                      context,
+                      theme,
+                      _controller.otherProfile.value,
+                    )
                   : ListView.builder(
                       controller: _scrollController,
                       reverse: true, // Anchor to bottom
@@ -296,7 +297,13 @@ class _ChatScreenState extends State<ChatScreen> {
                       maxLines: 4,
                       minLines: 1,
                       maxLength: 2000,
-                      buildCounter: (_, {required currentLength, required isFocused, required maxLength}) => null,
+                      buildCounter:
+                          (
+                            _, {
+                            required currentLength,
+                            required isFocused,
+                            required maxLength,
+                          }) => null,
                       decoration: const InputDecoration(
                         hintText: 'Type a message…',
                         filled: false,
@@ -341,7 +348,11 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildEmptyBindingState(BuildContext context, ThemeData theme, dynamic profile) {
+  Widget _buildEmptyBindingState(
+    BuildContext context,
+    ThemeData theme,
+    dynamic profile,
+  ) {
     final avatarDna = profile?.avatarDna ?? 0;
     final photoUrl = profile?.photoUrl;
 
@@ -368,13 +379,10 @@ class _ChatScreenState extends State<ChatScreen> {
                     radius: 65,
                     backgroundImage: CachedNetworkImageProvider(photoUrl),
                   )
-                : RemoteAvatarView(
-                    dna: avatarDna,
-                    radius: 65,
-                  ),
+                : RemoteAvatarView(dna: avatarDna, radius: 65),
           ),
           const SizedBox(height: 32),
-          
+
           // 2. Lore typography
           Text(
             'Your strands are bound.',
@@ -385,7 +393,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          
+
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 48),
             child: Text(

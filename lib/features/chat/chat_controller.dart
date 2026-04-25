@@ -336,9 +336,10 @@ class ChatController extends GetxController {
   /// Initiates the Report Protocol: The Audit Trail
   Future<void> reportUser(String reason) async {
     // 1. Gather recent messages from Firestore (not local DB — messages live in cloud).
-    final recentMessages = await _firebase.fetchConversationPreviewMessages(
-      [_activeConversationId, ..._conversationCandidates],
-    );
+    final recentMessages = await _firebase.fetchConversationPreviewMessages([
+      _activeConversationId,
+      ..._conversationCandidates,
+    ]);
 
     // 2. The Firestore Drop
     await _firebase.reportUser(

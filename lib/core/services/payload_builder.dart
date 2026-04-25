@@ -3,7 +3,7 @@ import '../utils/hash_engine.dart';
 
 class PayloadBuilder {
   /// Builds the 16-byte payload for iOS, formatted as a spoofed Service UUID.
-  /// 
+  ///
   /// Structure (16 bytes):
   /// - 0-1: Magic Bytes (0x0C0C)
   /// - 2: Protocol Version/Intent (0x11)
@@ -39,14 +39,16 @@ class PayloadBuilder {
   /// Result: 0c0c11xx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
   static String formatAsUuid(List<int> bytes) {
     if (bytes.length != 16) return '';
-    final hexString = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join('');
+    final hexString = bytes
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join('');
     return '${hexString.substring(0, 8)}-${hexString.substring(8, 12)}-'
-           '${hexString.substring(12, 16)}-${hexString.substring(16, 20)}-'
-           '${hexString.substring(20, 32)}';
+        '${hexString.substring(12, 16)}-${hexString.substring(16, 20)}-'
+        '${hexString.substring(20, 32)}';
   }
 
   /// Builds the 27-byte payload for Android Manufacturer Specific Data.
-  /// 
+  ///
   /// Structure (27 bytes):
   /// - 0: Version (0x01)
   /// - 1: Intent (0x11)

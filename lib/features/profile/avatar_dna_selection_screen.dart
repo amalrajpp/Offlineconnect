@@ -7,19 +7,25 @@ class AvatarDnaSelectionScreen extends StatefulWidget {
   const AvatarDnaSelectionScreen({super.key});
 
   @override
-  State<AvatarDnaSelectionScreen> createState() => _AvatarDnaSelectionScreenState();
+  State<AvatarDnaSelectionScreen> createState() =>
+      _AvatarDnaSelectionScreenState();
 }
 
 class _AvatarDnaSelectionScreenState extends State<AvatarDnaSelectionScreen> {
-  final FluttermojiController fluttermojiController = Get.put(FluttermojiController());
+  final FluttermojiController fluttermojiController = Get.put(
+    FluttermojiController(),
+  );
 
   Future<void> _onSave() async {
     HapticFeedback.heavyImpact();
-    
+
     // Extract the current state from Fluttermoji
-    final Map<dynamic, dynamic> rawState = await fluttermojiController.getFluttermojiOptions();
-    final Map<String, int> state = rawState.map((key, value) => MapEntry(key.toString(), value as int));
-    
+    final Map<dynamic, dynamic> rawState = await fluttermojiController
+        .getFluttermojiOptions();
+    final Map<String, int> state = rawState.map(
+      (key, value) => MapEntry(key.toString(), value as int),
+    );
+
     // Map to our 32-bit DNA keys
     final result = {
       'topStyle': state['topType'] ?? 0,
@@ -76,7 +82,9 @@ class _AvatarDnaSelectionScreenState extends State<AvatarDnaSelectionScreen> {
               ),
               child: FluttermojiCircleAvatar(
                 radius: 80,
-                backgroundColor: const Color(0xFF2D3139), // Standardized Deep Slate
+                backgroundColor: const Color(
+                  0xFF2D3139,
+                ), // Standardized Deep Slate
               ),
             ),
           ),
@@ -86,14 +94,21 @@ class _AvatarDnaSelectionScreenState extends State<AvatarDnaSelectionScreen> {
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.grey[900]!.withValues(alpha: 0.5),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(32),
+                ),
               ),
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(32),
+                ),
                 child: FluttermojiCustomizer(
                   scaffoldHeight: 400,
                   theme: FluttermojiThemeData(
-                    labelTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                    labelTextStyle: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                     primaryBgColor: Colors.transparent,
                     secondaryBgColor: Colors.transparent,
                     iconColor: Colors.white,
@@ -115,7 +130,9 @@ class _AvatarDnaSelectionScreenState extends State<AvatarDnaSelectionScreen> {
               backgroundColor: const Color(0xFFE50914),
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 60),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
             ),
             child: const Text(
               'SEQUENCE DNA',

@@ -8,17 +8,13 @@ class RemoteAvatarView extends StatelessWidget {
   final int dna;
   final double radius;
 
-  const RemoteAvatarView({
-    super.key,
-    required this.dna,
-    this.radius = 40,
-  });
+  const RemoteAvatarView({super.key, required this.dna, this.radius = 40});
 
   @override
   Widget build(BuildContext context) {
     final traits = AvatarDNA.unpack(dna);
     final functions = fm.FluttermojiFunctions();
-    
+
     String svgString;
     try {
       // Clamping traits to known safe ranges for the current fluttermoji asset list
@@ -39,11 +35,11 @@ class RemoteAvatarView extends StatelessWidget {
       };
 
       svgString = functions.decodeFluttermojifromString(
-        jsonEncode(safeEncoded)
+        jsonEncode(safeEncoded),
       );
     } catch (e) {
       // Fallback for extreme stress edge-cases
-      svgString = ''; 
+      svgString = '';
     }
 
     // Standardized premium background for all avatars
@@ -67,11 +63,16 @@ class RemoteAvatarView extends StatelessWidget {
         child: ClipOval(
           child: Visibility(
             visible: dna != 0 && svgString.isNotEmpty,
-            replacement: Icon(Icons.person, size: radius, color: Colors.white24),
+            replacement: Icon(
+              Icons.person,
+              size: radius,
+              color: Colors.white24,
+            ),
             child: SvgPicture.string(
               svgString,
               height: radius * 1.6,
-              placeholderBuilder: (context) => const CircularProgressIndicator(),
+              placeholderBuilder: (context) =>
+                  const CircularProgressIndicator(),
             ),
           ),
         ),

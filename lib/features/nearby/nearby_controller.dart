@@ -745,18 +745,18 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
         if (currentCount >= 500) break;
         final mockHash = currentCount.toRadixString(16).padLeft(10, '0');
         final peerKey = _canonicalHash(mockHash);
-        
+
         // Generate random randomized DNA within Fluttermoji's valid asset ranges (32-bit DNA)
         final random = math.Random();
         final mockDna = AvatarDNA.pack(
-          topStyle: random.nextInt(35),      // Fluttermoji has ~35 top types
-          hairColor: random.nextInt(10),     // ~10 hair colors
-          eyeStyle: random.nextInt(10),      // ~10 eye types
-          eyebrowType: random.nextInt(12),   // ~12 eyebrow types
-          mouthType: random.nextInt(10),     // ~10 mouth types
-          skinColor: random.nextInt(5),      // ~5 skin colors
+          topStyle: random.nextInt(35), // Fluttermoji has ~35 top types
+          hairColor: random.nextInt(10), // ~10 hair colors
+          eyeStyle: random.nextInt(10), // ~10 eye types
+          eyebrowType: random.nextInt(12), // ~12 eyebrow types
+          mouthType: random.nextInt(10), // ~10 mouth types
+          skinColor: random.nextInt(5), // ~5 skin colors
           facialHairType: random.nextInt(8), // ~8 facial hair types
-          accessoriesType: random.nextInt(8),// ~8 accessory types
+          accessoriesType: random.nextInt(8), // ~8 accessory types
         );
 
         _buffer[peerKey] = DiscoveredPeer(

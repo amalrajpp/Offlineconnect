@@ -31,6 +31,7 @@ dependencies:
   vibration: ^3.1.8
   fluttermoji: ^1.0.2
   crypto: ^3.0.7
+  flutter_svg: ^2.2.4
 
 dev_dependencies:
   flutter_test:

@@ -73,7 +73,8 @@ class BleService extends GetxService {
           final scan = await Permission.bluetoothScan.request();
           final connect = await Permission.bluetoothConnect.request();
           final advertise = await Permission.bluetoothAdvertise.request();
-          if (!scan.isGranted || !connect.isGranted || !advertise.isGranted) return false;
+          if (!scan.isGranted || !connect.isGranted || !advertise.isGranted)
+            return false;
         } else {
           final location = await Permission.location.request();
           final ble = await Permission.bluetooth.request();
@@ -87,7 +88,10 @@ class BleService extends GetxService {
       final state = await FlutterBluePlus.adapterState
           .where((s) => s != BluetoothAdapterState.unknown)
           .first
-          .timeout(const Duration(seconds: 3), onTimeout: () => BluetoothAdapterState.unknown);
+          .timeout(
+            const Duration(seconds: 3),
+            onTimeout: () => BluetoothAdapterState.unknown,
+          );
       return state == BluetoothAdapterState.on;
     } catch (e) {
       Get.log('BleService: requestPermissions failed – $e');
@@ -107,7 +111,9 @@ class BleService extends GetxService {
       if (Platform.isIOS) {
         payload = PayloadBuilder.buildIosPayload(
           dna32: identity.avatarDna,
-          outfitColor: ((identity.topWearColor & 0x0F) << 4) | (identity.bottomWearColor & 0x0F),
+          outfitColor:
+              ((identity.topWearColor & 0x0F) << 4) |
+              (identity.bottomWearColor & 0x0F),
           myId: identity.offlineId,
           targetId: targetId ?? '',
         );
@@ -115,7 +121,9 @@ class BleService extends GetxService {
       } else {
         payload = PayloadBuilder.buildAndroidPayload(
           dna32: identity.avatarDna,
-          outfitColor: ((identity.topWearColor & 0x0F) << 4) | (identity.bottomWearColor & 0x0F),
+          outfitColor:
+              ((identity.topWearColor & 0x0F) << 4) |
+              (identity.bottomWearColor & 0x0F),
           myId: identity.offlineId,
           targetId: targetId ?? '',
           username: identity.username,
@@ -204,7 +212,7 @@ class BleService extends GetxService {
     // Handle Blink (Handshakes)
     if (raw[0] == 0xFF || raw[0] == 0xEE) {
       // (Blink logic remains largely similar but using HashEngine comparisons if needed)
-      return null; 
+      return null;
     }
 
     int intentIndex;
@@ -215,17 +223,20 @@ class BleService extends GetxService {
     int bottomColor = 0;
     String? username;
 
-    if (raw.length >= 27) { // Android
+    if (raw.length >= 27) {
+      // Android
       intentIndex = raw[1];
       senderHashHex = _bytesToHex(raw.sublist(2, 6));
       targetHashHex = _bytesToHex(raw.sublist(6, 10));
       avatarDna = AvatarDNA.fromBytes(raw, 10);
       topColor = (raw[14] >> 4) & 0x0F;
       bottomColor = raw[14] & 0x0F;
-      
+
       final nameBytes = raw.sublist(15, 27).where((b) => b != 0).toList();
-      if (nameBytes.isNotEmpty) username = utf8.decode(nameBytes, allowMalformed: true);
-    } else if (raw.length == 16) { // iOS
+      if (nameBytes.isNotEmpty)
+        username = utf8.decode(nameBytes, allowMalformed: true);
+    } else if (raw.length == 16) {
+      // iOS
       intentIndex = raw[2] & 0x0F;
       avatarDna = AvatarDNA.fromBytes(raw, 3);
       topColor = (raw[7] >> 4) & 0x0F;
@@ -237,11 +248,13 @@ class BleService extends GetxService {
     }
 
     if (intentIndex >= BleIntent.values.length) return null;
-    
+
     return DiscoveredPeer(
       deviceId: result.device.remoteId.str,
       myHash: senderHashHex,
-      targetHash: (targetHashHex == '00000000' || targetHashHex == '0000') ? null : targetHashHex,
+      targetHash: (targetHashHex == '00000000' || targetHashHex == '0000')
+          ? null
+          : targetHashHex,
       offlineUsername: username,
       avatarDna: avatarDna,
       topWearColor: topColor,

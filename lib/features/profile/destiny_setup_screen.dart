@@ -198,7 +198,8 @@ class _DestinySetupScreenState extends State<DestinySetupScreen> {
               onPressed: null, // Destiny matching is coming soon.
               style: FilledButton.styleFrom(
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest,
+                disabledBackgroundColor:
+                    theme.colorScheme.surfaceContainerHighest,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(28),
                 ),

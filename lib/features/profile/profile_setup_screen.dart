@@ -7,10 +7,6 @@ import '../nearby/widgets/remote_avatar_view.dart';
 
 import 'profile_controller.dart';
 import '../../core/services/identity_service.dart';
-import '../../core/services/firebase_sync_service.dart';
-import '../../core/services/local_db_service.dart';
-
-import '../../core/constants/assets.dart';
 
 /// One-time profile setup screen shown on first launch.
 /// Redesigned with a modern, flat, bold Snapchat-style UI.
@@ -142,7 +138,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       );
       widget.onComplete();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to save profile: $e', snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar(
+        'Error',
+        'Failed to save profile: $e',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -154,7 +154,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       decoration: BoxDecoration(
         color: theme.cardTheme.color ?? theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3)),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
       ),
       child: child,
     );
@@ -170,7 +172,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: Text('Create Identity', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+        title: Text(
+          'Create Identity',
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+        ),
         centerTitle: true,
       ),
       body: _isLoading
@@ -189,8 +194,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                           final uploading = controller.isUploadingPhoto.value;
                           return CircleAvatar(
                             radius: 56,
-                            backgroundImage: _photoUrl != null ? CachedNetworkImageProvider(_photoUrl!) : null,
-                            child: uploading ? CircularProgressIndicator() : (_photoUrl == null ? Icon(Icons.person, size: 48) : null),
+                            backgroundImage: _photoUrl != null
+                                ? CachedNetworkImageProvider(_photoUrl!)
+                                : null,
+                            child: uploading
+                                ? CircularProgressIndicator()
+                                : (_photoUrl == null
+                                      ? Icon(Icons.person, size: 48)
+                                      : null),
                           );
                         }),
                       ),
@@ -199,8 +210,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       // Username
                       TextFormField(
                         controller: _usernameController,
-                        decoration: InputDecoration(labelText: 'Offline Username', hintText: 'e.g. Satoshi'),
-                        validator: (v) => v == null || v.isEmpty ? 'Required' : null,
+                        decoration: InputDecoration(
+                          labelText: 'Offline Username',
+                          hintText: 'e.g. Satoshi',
+                        ),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
                       ),
                       const SizedBox(height: 16),
 
@@ -222,18 +237,29 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               );
                               return Row(
                                 children: [
-                                  RemoteAvatarView(
-                                    dna: currentDna,
-                                    radius: 40,
-                                  ),
+                                  RemoteAvatarView(dna: currentDna, radius: 40),
                                   const SizedBox(width: 20),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        const Text('AVATAR DNA', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Colors.white)),
-                                        Text('DNA: 0x${currentDna.toRadixString(16).toUpperCase().padLeft(8, '0')}', 
-                                            style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace')),
+                                        const Text(
+                                          'AVATAR DNA',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 18,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        Text(
+                                          'DNA: 0x${currentDna.toRadixString(16).toUpperCase().padLeft(8, '0')}',
+                                          style: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 10,
+                                            fontFamily: 'monospace',
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -245,16 +271,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               width: double.infinity,
                               child: OutlinedButton.icon(
                                 onPressed: () async {
-                                  final result = await Get.to<Map<String, int>>(() => const AvatarDnaSelectionScreen());
+                                  final result = await Get.to<Map<String, int>>(
+                                    () => const AvatarDnaSelectionScreen(),
+                                  );
                                   if (result != null) {
                                     _topStyle.value = result['topStyle'] ?? 0;
                                     _hairColor.value = result['hairColor'] ?? 0;
                                     _eyeStyle.value = result['eyeStyle'] ?? 0;
-                                    _eyebrowType.value = result['eyebrowType'] ?? 0;
+                                    _eyebrowType.value =
+                                        result['eyebrowType'] ?? 0;
                                     _mouthType.value = result['mouthType'] ?? 0;
                                     _skinColor.value = result['skinColor'] ?? 0;
-                                    _facialHairType.value = result['facialHairType'] ?? 0;
-                                    _accessoriesType.value = result['accessoriesType'] ?? 0;
+                                    _facialHairType.value =
+                                        result['facialHairType'] ?? 0;
+                                    _accessoriesType.value =
+                                        result['accessoriesType'] ?? 0;
                                   }
                                 },
                                 icon: const Icon(Icons.fingerprint),
@@ -267,29 +298,42 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       const SizedBox(height: 32),
 
                       // EULA (Only show if not already accepted)
-                      Obx(() => controller.hasAcceptedEULA.value 
-                        ? const SizedBox.shrink() 
-                        : Column(
-                            children: [
-                              CheckboxListTile(
-                                title: Text('I agree to the Terms and EULA', style: TextStyle(fontSize: 12)),
-                                value: controller.hasAcceptedEULA.value,
-                                onChanged: (v) => controller.hasAcceptedEULA.value = v ?? false,
-                                controlAffinity: ListTileControlAffinity.leading,
+                      Obx(
+                        () => controller.hasAcceptedEULA.value
+                            ? const SizedBox.shrink()
+                            : Column(
+                                children: [
+                                  CheckboxListTile(
+                                    title: Text(
+                                      'I agree to the Terms and EULA',
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                    value: controller.hasAcceptedEULA.value,
+                                    onChanged: (v) =>
+                                        controller.hasAcceptedEULA.value =
+                                            v ?? false,
+                                    controlAffinity:
+                                        ListTileControlAffinity.leading,
+                                  ),
+                                  const SizedBox(height: 16),
+                                ],
                               ),
-                              const SizedBox(height: 16),
-                            ],
-                          )),
+                      ),
 
                       // Save
                       Obx(() {
-                        final canSave = !_saving && controller.hasAcceptedEULA.value;
+                        final canSave =
+                            !_saving && controller.hasAcceptedEULA.value;
                         return SizedBox(
                           width: double.infinity,
                           height: 64,
                           child: FilledButton(
                             onPressed: canSave ? _save : null,
-                            child: _saving ? const CircularProgressIndicator(color: Colors.white) : const Text('Save & Update Radar'),
+                            child: _saving
+                                ? const CircularProgressIndicator(
+                                    color: Colors.white,
+                                  )
+                                : const Text('Save & Update Radar'),
                           ),
                         );
                       }),

@@ -1,6 +1,6 @@
 class AvatarDNA {
   /// Packs Fluttermoji features into a single 32-bit unsigned integer.
-  /// 
+  ///
   /// Bit Allocation:
   /// - Top Style: 6 bits (0-63) << 26
   /// - Hair Color: 4 bits (0-15) << 22
@@ -20,15 +20,16 @@ class AvatarDNA {
     required int facialHairType,
     required int accessoriesType,
   }) {
-    int dna = ((topStyle & 0x3F) << 26) |
-              ((hairColor & 0x0F) << 22) |
-              ((eyeStyle & 0x0F) << 18) |
-              ((eyebrowType & 0x0F) << 14) |
-              ((mouthType & 0x0F) << 10) |
-              ((skinColor & 0x0F) << 6) |
-              ((facialHairType & 0x07) << 3) |
-              (accessoriesType & 0x07);
-              
+    int dna =
+        ((topStyle & 0x3F) << 26) |
+        ((hairColor & 0x0F) << 22) |
+        ((eyeStyle & 0x0F) << 18) |
+        ((eyebrowType & 0x0F) << 14) |
+        ((mouthType & 0x0F) << 10) |
+        ((skinColor & 0x0F) << 6) |
+        ((facialHairType & 0x07) << 3) |
+        (accessoriesType & 0x07);
+
     return dna.toUnsigned(32);
   }
 
@@ -59,10 +60,11 @@ class AvatarDNA {
   /// Reconstructs a 32-bit integer from 4 consecutive bytes.
   static int fromBytes(List<int> bytes, int offset) {
     if (offset + 3 >= bytes.length) return 0;
-    int dna = ((bytes[offset] & 0xFF) << 24) |
-              ((bytes[offset + 1] & 0xFF) << 16) |
-              ((bytes[offset + 2] & 0xFF) << 8) |
-              (bytes[offset + 3] & 0xFF);
+    int dna =
+        ((bytes[offset] & 0xFF) << 24) |
+        ((bytes[offset + 1] & 0xFF) << 16) |
+        ((bytes[offset + 2] & 0xFF) << 8) |
+        (bytes[offset + 3] & 0xFF);
     return dna.toUnsigned(32);
   }
 }

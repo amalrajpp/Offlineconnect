@@ -86,13 +86,13 @@ class _NearbyScreenState extends State<NearbyScreen>
     });
 
     _windController = AnimationController(
-       vsync: this,
-       duration: const Duration(seconds: 5),
+      vsync: this,
+      duration: const Duration(seconds: 5),
     )..repeat();
 
     _shootController = AnimationController(
-       vsync: this,
-       duration: const Duration(milliseconds: 500),
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
     );
 
     final controller = Get.find<NearbyController>();
@@ -130,7 +130,10 @@ class _NearbyScreenState extends State<NearbyScreen>
           IconButton(
             icon: const Icon(Icons.sensors),
             tooltip: 'Kinetic Bump',
-            onPressed: () => Get.to(() => const KineticConnectScreen(), transition: Transition.cupertino),
+            onPressed: () => Get.to(
+              () => const KineticConnectScreen(),
+              transition: Transition.cupertino,
+            ),
           ),
           if (kDebugMode)
             IconButton(
@@ -255,10 +258,14 @@ class _NearbyScreenState extends State<NearbyScreen>
                               child: FilledButton.icon(
                                 style: FilledButton.styleFrom(
                                   backgroundColor: cooling
-                                      ? theme.colorScheme.surfaceContainerHighest
+                                      ? theme
+                                            .colorScheme
+                                            .surfaceContainerHighest
                                       : theme.colorScheme.primary,
                                   foregroundColor: cooling
-                                      ? theme.colorScheme.onSurface.withValues(alpha: 0.5)
+                                      ? theme.colorScheme.onSurface.withValues(
+                                          alpha: 0.5,
+                                        )
                                       : Colors.black,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(28),
@@ -269,10 +276,13 @@ class _NearbyScreenState extends State<NearbyScreen>
                                     : () {
                                         controller.users.clear();
                                         _cachedPositions.clear();
-                                        controller.startScanningAndBroadcasting();
+                                        controller
+                                            .startScanningAndBroadcasting();
                                       },
                                 icon: Icon(
-                                  cooling ? Icons.timer_outlined : Icons.refresh,
+                                  cooling
+                                      ? Icons.timer_outlined
+                                      : Icons.refresh,
                                 ),
                                 label: Text(
                                   cooling
@@ -409,7 +419,10 @@ class _NearbyScreenState extends State<NearbyScreen>
 
                         // X. The Red String of Fate
                         AnimatedBuilder(
-                          animation: Listenable.merge([_windController, _shootController]),
+                          animation: Listenable.merge([
+                            _windController,
+                            _shootController,
+                          ]),
                           builder: (_, __) {
                             return CustomPaint(
                               painter: RedStringPainter(
@@ -683,10 +696,7 @@ class _NearbyScreenState extends State<NearbyScreen>
               ),
             ],
           ),
-          child: RemoteAvatarView(
-            dna: peer.avatarDna,
-            radius: 26,
-          ),
+          child: RemoteAvatarView(dna: peer.avatarDna, radius: 26),
         ),
         if (isThisPeerPending)
           Positioned(
@@ -1005,10 +1015,7 @@ class _IncomingRequestBanner extends StatelessWidget {
   final DiscoveredPeer peer;
   final NearbyController controller;
 
-  const _IncomingRequestBanner({
-    required this.peer,
-    required this.controller,
-  });
+  const _IncomingRequestBanner({required this.peer, required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -1050,10 +1057,7 @@ class _IncomingRequestBanner extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: theme.colorScheme.primary,
-                  width: 2,
-                ),
+                border: Border.all(color: theme.colorScheme.primary, width: 2),
                 boxShadow: [
                   BoxShadow(
                     color: theme.colorScheme.primary.withValues(alpha: 0.3),
@@ -1109,8 +1113,8 @@ class _IncomingRequestBanner extends StatelessWidget {
               ),
               tooltip: 'Ignore',
               style: IconButton.styleFrom(
-                backgroundColor:
-                    theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
+                backgroundColor: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.8),
               ),
             ),
             const SizedBox(width: 8),
@@ -1131,10 +1135,7 @@ class _IncomingRequestBanner extends StatelessWidget {
               ),
               child: const Text(
                 'Accept',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ),
           ],
@@ -1244,14 +1245,24 @@ class RedStringPainter extends CustomPainter {
       double sag = dist * 0.15; // Natural gravity/slack
 
       // Wind flutter (composed of two sin waves for organic chaos)
-      double flutter1 = math.sin(windProgress * math.pi * 2 + peer.myHash.hashCode) * (dist * 0.06);
-      double flutter2 = math.cos(windProgress * math.pi * 4 - peer.myHash.hashCode) * (dist * 0.03);
+      double flutter1 =
+          math.sin(windProgress * math.pi * 2 + peer.myHash.hashCode) *
+          (dist * 0.06);
+      double flutter2 =
+          math.cos(windProgress * math.pi * 4 - peer.myHash.hashCode) *
+          (dist * 0.03);
 
       double totalOffset = sag + flutter1 + flutter2;
 
       // Control points for cubic bezier, shifted along the normal
-      final p1 = Offset(p0.dx + dx * 0.33 + nx * totalOffset, p0.dy + dy * 0.33 + ny * totalOffset);
-      final p2 = Offset(p0.dx + dx * 0.66 + nx * (totalOffset * 0.8), p0.dy + dy * 0.66 + ny * (totalOffset * 0.8));
+      final p1 = Offset(
+        p0.dx + dx * 0.33 + nx * totalOffset,
+        p0.dy + dy * 0.33 + ny * totalOffset,
+      );
+      final p2 = Offset(
+        p0.dx + dx * 0.66 + nx * (totalOffset * 0.8),
+        p0.dy + dy * 0.66 + ny * (totalOffset * 0.8),
+      );
 
       final path = Path()
         ..moveTo(p0.dx, p0.dy)
@@ -1279,4 +1290,3 @@ class RedStringPainter extends CustomPainter {
   @override
   bool shouldRepaint(RedStringPainter oldDelegate) => true;
 }
-

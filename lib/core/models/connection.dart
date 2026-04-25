@@ -1,10 +1,5 @@
 /// Status of a connection between two offline identities.
-enum ConnectionStatus {
-  pendingOutgoing,
-  pendingIncoming,
-  accepted,
-  blocked,
-}
+enum ConnectionStatus { pendingOutgoing, pendingIncoming, accepted, blocked }
 
 /// Represents a connection (or pending connection) with another offline user.
 class Connection {
@@ -32,12 +27,12 @@ class Connection {
   });
 
   Map<String, dynamic> toMap() => {
-        if (id != null) 'id': id,
-        'my_offline_id': myOfflineId,
-        'other_offline_id': otherOfflineId,
-        'status': status.index,
-        'first_met_at': firstMetAt.toIso8601String(),
-      };
+    if (id != null) 'id': id,
+    'my_offline_id': myOfflineId,
+    'other_offline_id': otherOfflineId,
+    'status': status.index,
+    'first_met_at': firstMetAt.toIso8601String(),
+  };
 
   factory Connection.fromMap(Map<String, dynamic> map) {
     return Connection(

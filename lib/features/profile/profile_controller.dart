@@ -127,10 +127,17 @@ class ProfileController extends GetxController {
 
   Future<String?> pickAndUploadPhoto() async {
     try {
-      final picked = await _imagePicker.pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512);
+      final picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+      );
       if (picked == null) return null;
       isUploadingPhoto.value = true;
-      final url = await _firebase.uploadProfilePhoto(_myOfflineId, File(picked.path));
+      final url = await _firebase.uploadProfilePhoto(
+        _myOfflineId,
+        File(picked.path),
+      );
       if (url != null) {
         final current = profile.value;
         if (current != null) {

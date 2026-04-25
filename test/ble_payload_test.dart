@@ -53,7 +53,7 @@ void main() {
       expect(payload.length, 27);
       expect(payload[0], 0x01);
       expect(payload[14], 0xAB);
-      
+
       // Verify username truncation/packing
       final name = String.fromCharCodes(payload.sublist(15, 19));
       expect(name, 'Amal');
