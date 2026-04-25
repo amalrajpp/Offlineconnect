@@ -8,8 +8,8 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:vibration/vibration.dart';
 
 import '../nearby/nearby_controller.dart';
+import '../nearby/widgets/remote_avatar_view.dart';
 import '../../core/models/ble_models.dart';
-import '../../core/constants/assets.dart';
 import 'connections_screen.dart';
 
 enum ConnectState { listening, connecting, success }
@@ -162,7 +162,7 @@ class _KineticConnectScreenState extends State<KineticConnectScreen> with Ticker
       deviceId: 'test_123',
       myHash: 't_hash',
       offlineUsername: 'Test User',
-      avatarDna: 1,
+      avatarDna: 0x1A2B3C4D, // Use a representative 32-bit DNA for the test
       intent: BleIntent.presence,
       rssi: -40,
       lastSeen: DateTime.now(),
@@ -573,16 +573,9 @@ class _KineticConnectScreenState extends State<KineticConnectScreen> with Ticker
                   // 2. The Transmuted Solid Profile
                   Opacity(
                     opacity: Curves.easeIn.transform(transitionPhase),
-                    child: Container(
-                      width: size,
-                      height: size,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        image: DecorationImage(
-                          image: AssetImage(AppAssets.getAvatarPath(_acceptedPeer!.avatarDna)),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                    child: RemoteAvatarView(
+                      dna: _acceptedPeer!.avatarDna,
+                      radius: size / 2,
                     ),
                   ),
                 ],

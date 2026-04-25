@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +12,7 @@ import '../../core/services/ble_service.dart';
 import '../../core/services/firebase_sync_service.dart';
 import '../../core/services/identity_service.dart';
 import '../../core/services/local_db_service.dart';
+import '../../core/models/avatar_dna.dart';
 import '../connections/connections_controller.dart';
 
 /// Controls the nearby-discovery feature with an aggressive 2-second
@@ -744,11 +745,25 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
         if (currentCount >= 500) break;
         final mockHash = currentCount.toRadixString(16).padLeft(10, '0');
         final peerKey = _canonicalHash(mockHash);
+        
+        // Generate random randomized DNA within Fluttermoji's valid asset ranges (32-bit DNA)
+        final random = math.Random();
+        final mockDna = AvatarDNA.pack(
+          topStyle: random.nextInt(35),      // Fluttermoji has ~35 top types
+          hairColor: random.nextInt(10),     // ~10 hair colors
+          eyeStyle: random.nextInt(10),      // ~10 eye types
+          eyebrowType: random.nextInt(12),   // ~12 eyebrow types
+          mouthType: random.nextInt(10),     // ~10 mouth types
+          skinColor: random.nextInt(5),      // ~5 skin colors
+          facialHairType: random.nextInt(8), // ~8 facial hair types
+          accessoriesType: random.nextInt(8),// ~8 accessory types
+        );
+
         _buffer[peerKey] = DiscoveredPeer(
           deviceId: 'simulated_device_$currentCount',
           myHash: mockHash,
           offlineUsername: 'Stress Bot $currentCount',
-          avatarDna: 0,
+          avatarDna: mockDna,
           topWearColor: currentCount % 15,
           bottomWearColor: (currentCount + 5) % 15,
           intent: BleIntent.presence,
@@ -1215,7 +1230,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
 
   /// Injects [count] fake users into the buffer to simulate a crowded room.
   void injectMockPeers(int count) {
-    final random = Random();
+    final random = math.Random();
     final chars = '0123456789abcdef';
 
     for (var i = 0; i < count; i++) {
@@ -1249,7 +1264,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
 
   /// Injects a perfectly synthesized 3-byte blink request targeting me.
   void injectMockBlink() {
-    final random = Random();
+    final random = math.Random();
     final chars = '0123456789abcdef';
     final fakeId = List.generate(10, (_) => chars[random.nextInt(16)]).join();
 

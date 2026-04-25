@@ -26,7 +26,7 @@ class ProfileController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _loadLocalProfile();
+    loadLocalProfile();
     _loadEulaState();
   }
 
@@ -34,7 +34,7 @@ class ProfileController extends GetxController {
     hasAcceptedEULA.value = await _identity.getEulaAccepted();
   }
 
-  Future<void> _loadLocalProfile() async {
+  Future<void> loadLocalProfile() async {
     try {
       final db = await _db.database;
       final rows = await db.query(

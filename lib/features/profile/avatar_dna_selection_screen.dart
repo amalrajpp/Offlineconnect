@@ -68,14 +68,15 @@ class _AvatarDnaSelectionScreenState extends State<AvatarDnaSelectionScreen> {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFFE50914).withValues(alpha: 0.15),
+                    const Color(0xFFE50914).withValues(alpha: 0.25),
                     Colors.transparent,
                   ],
+                  radius: 1.2,
                 ),
               ),
               child: FluttermojiCircleAvatar(
                 radius: 80,
-                backgroundColor: Colors.grey[900],
+                backgroundColor: const Color(0xFF2D3139), // Standardized Deep Slate
               ),
             ),
           ),

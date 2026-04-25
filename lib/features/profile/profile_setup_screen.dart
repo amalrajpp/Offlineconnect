@@ -50,6 +50,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     super.initState();
     _initIdentity();
     _preloadAssets();
+
+    // Re-sync if the controller profile loads/changes (Fix for profile tab not showing saved DNA)
+    final controller = Get.find<ProfileController>();
+    ever(controller.profile, (_) => _initIdentity());
+
+    // Force a fresh check after the first frame to catch any missed loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        controller.loadLocalProfile();
+        _initIdentity();
+      }
+    });
   }
 
   void _initIdentity() {
@@ -74,9 +86,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       final controller = Get.find<ProfileController>();
       final existing = controller.profile.value;
       if (existing != null) {
-        _nameController.text = existing.displayName;
-        _bioController.text = existing.bio ?? '';
-        _photoUrl = existing.photoUrl;
+        if (mounted) {
+          setState(() {
+            _nameController.text = existing.displayName;
+            _bioController.text = existing.bio ?? '';
+            _photoUrl = existing.photoUrl;
+          });
+        }
       }
     } catch (_) {}
   }

@@ -8,6 +8,7 @@ import '../../core/models/connection.dart';
 import '../../core/constants/assets.dart';
 import '../chat/chat_screen.dart';
 import '../connections/kinetic_connect_screen.dart';
+import 'widgets/remote_avatar_view.dart';
 import 'nearby_controller.dart';
 
 /// Displays nearby BLE peers discovered via the Zero-GATT protocol
@@ -682,14 +683,9 @@ class _NearbyScreenState extends State<NearbyScreen>
               ),
             ],
           ),
-          child: CircleAvatar(
+          child: RemoteAvatarView(
+            dna: peer.avatarDna,
             radius: 26,
-            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            backgroundImage: ResizeImage(
-              AssetImage(AppAssets.getAvatarPath(peer.avatarDna)),
-              width: 104,
-              height: 104,
-            ),
           ),
         ),
         if (isThisPeerPending)

@@ -2,8 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../core/constants/assets.dart';
 import '../../core/services/identity_service.dart';
+import '../nearby/widgets/remote_avatar_view.dart';
 import 'chat_controller.dart';
 
 /// Real-time chat screen powered by Firestore.
@@ -119,17 +119,20 @@ class _ChatScreenState extends State<ChatScreen> {
           return Row(
             children: [
               // Photo — only shown for connected users (privacy-first).
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: theme.colorScheme.primaryContainer,
-                backgroundImage: photoUrl != null
-                    ? CachedNetworkImageProvider(photoUrl)
-                    : ResizeImage(
-                            AssetImage(AppAssets.getAvatarPath(avatarDna)),
-                            width: 144,
-                            height: 144,
-                          )
-                          as ImageProvider,
+              // Procedural DNA Avatar or Photo — fallback for connected users (privacy-first).
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: photoUrl != null
+                    ? CircleAvatar(
+                        radius: 18,
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        backgroundImage: CachedNetworkImageProvider(photoUrl),
+                      )
+                    : RemoteAvatarView(
+                        dna: avatarDna,
+                        radius: 18,
+                      ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -347,9 +350,8 @@ class _ChatScreenState extends State<ChatScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // 1. Hovering cinematic avatar
+          // 1. Hovering cinematic DNA avatar
           Container(
-            width: 130,
-            height: 130,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               boxShadow: [
@@ -360,14 +362,16 @@ class _ChatScreenState extends State<ChatScreen> {
                   offset: const Offset(0, 10),
                 ),
               ],
-              image: DecorationImage(
-                image: photoUrl != null
-                    ? CachedNetworkImageProvider(photoUrl)
-                    : AssetImage(AppAssets.getAvatarPath(avatarDna))
-                        as ImageProvider,
-                fit: BoxFit.cover,
-              ),
             ),
+            child: photoUrl != null
+                ? CircleAvatar(
+                    radius: 65,
+                    backgroundImage: CachedNetworkImageProvider(photoUrl),
+                  )
+                : RemoteAvatarView(
+                    dna: avatarDna,
+                    radius: 65,
+                  ),
           ),
           const SizedBox(height: 32),
           
