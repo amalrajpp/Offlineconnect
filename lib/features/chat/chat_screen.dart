@@ -113,7 +113,7 @@ class _ChatScreenState extends State<ChatScreen> {
         title: Obx(() {
           final profile = _controller.otherProfile.value;
           final photoUrl = profile?.photoUrl;
-          final avatarId = profile?.avatarId ?? 0;
+          final avatarDna = profile?.avatarDna ?? 0;
           final name = profile?.displayName ?? widget.otherDisplayName;
 
           return Row(
@@ -125,7 +125,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 backgroundImage: photoUrl != null
                     ? CachedNetworkImageProvider(photoUrl)
                     : ResizeImage(
-                            AssetImage(AppAssets.getAvatarPath(avatarId)),
+                            AssetImage(AppAssets.getAvatarPath(avatarDna)),
                             width: 144,
                             height: 144,
                           )
@@ -339,7 +339,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildEmptyBindingState(BuildContext context, ThemeData theme, dynamic profile) {
-    final avatarId = profile?.avatarId ?? 0;
+    final avatarDna = profile?.avatarDna ?? 0;
     final photoUrl = profile?.photoUrl;
 
     return Center(
@@ -363,7 +363,7 @@ class _ChatScreenState extends State<ChatScreen> {
               image: DecorationImage(
                 image: photoUrl != null
                     ? CachedNetworkImageProvider(photoUrl)
-                    : AssetImage(AppAssets.getAvatarPath(avatarId))
+                    : AssetImage(AppAssets.getAvatarPath(avatarDna))
                         as ImageProvider,
                 fit: BoxFit.cover,
               ),

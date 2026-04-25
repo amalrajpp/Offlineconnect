@@ -246,11 +246,9 @@ class _WardrobeCheckSheetState extends State<_WardrobeCheckSheet> {
 
     // Set traits updates SecureStorage and calls confirmWardrobe()
     await identityService.setTraits(
-      avatarId: identity.avatarId,
+      avatarDna: identity.avatarDna,
       topWearColor: topWearColor,
       bottomWearColor: bottomWearColor,
-      gender: identity.gender,
-      nativity: identity.nativity,
     );
 
     // Refresh Broadcast to broadcast new colors instantly

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../core/models/avatar_dna.dart';
 
 import 'profile_controller.dart';
 import '../../core/services/identity_service.dart';
@@ -105,7 +106,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     try {
       final identity = Get.find<IdentityService>().identity;
       _usernameController.text = identity.username;
-      _avatarId = identity.avatarId;
+
+      final avatarDna = AvatarDNA.unpack(identity.avatarDna);
+
+      _avatarId = avatarDna['hairStyle'] ?? 0;
       if (_avatarId < 0 || _avatarId >= AppAssets.maxAvatars) _avatarId = 0;
 
       _topWearColor = identity.topWearColor;
@@ -114,10 +118,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       _bottomWearColor = identity.bottomWearColor;
       if (_bottomWearColor < 0 || _bottomWearColor > 15) _bottomWearColor = 0;
 
-      _gender = identity.gender;
+      _gender = avatarDna['eyeShape'] ?? 0;
       if (_gender < 0 || _gender >= genderOptions.length) _gender = 0;
 
-      _nativity = identity.nativity;
+      _nativity = avatarDna['noseShape'] ?? 0;
       final subLen = nativityOptions.length;
       if (_nativity < 0 || _nativity >= subLen) _nativity = 0;
 

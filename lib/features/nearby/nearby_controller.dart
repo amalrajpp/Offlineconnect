@@ -131,14 +131,17 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
   final Rx<DiscoveredPeer?> currentIncomingPeer = Rx<DiscoveredPeer?>(null);
 
   /// Whether the user can still send outgoing requests this session.
-  bool get canSendRequest => sessionRequestsSent.value < maxRequestsPerSession
-      && sessionMutualConnections.value < maxMutualPerSession;
+  bool get canSendRequest =>
+      sessionRequestsSent.value < maxRequestsPerSession &&
+      sessionMutualConnections.value < maxMutualPerSession;
 
   /// Remaining outgoing requests for this session.
-  int get remainingRequests => maxRequestsPerSession - sessionRequestsSent.value;
+  int get remainingRequests =>
+      maxRequestsPerSession - sessionRequestsSent.value;
 
   /// Remaining mutual connections for this session.
-  int get remainingMutual => maxMutualPerSession - sessionMutualConnections.value;
+  int get remainingMutual =>
+      maxMutualPerSession - sessionMutualConnections.value;
 
   /// Whether either session limit has been reached.
   bool get _isSessionLimitReached =>
@@ -614,7 +617,10 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
   ///
   /// This is used to manually trigger an accept response to a peer we
   /// previously requested to connect with.
-  Future<void> sendAcceptRequest(String targetHash, {bool silent = false}) async {
+  Future<void> sendAcceptRequest(
+    String targetHash, {
+    bool silent = false,
+  }) async {
     try {
       // ── Per-session limits — auto-stop handles the UI, just guard here ─
       if (_isSessionLimitReached) return;
@@ -742,11 +748,9 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
           deviceId: 'simulated_device_$currentCount',
           myHash: mockHash,
           offlineUsername: 'Stress Bot $currentCount',
-          avatarId: currentCount % 10,
+          avatarDna: 0,
           topWearColor: currentCount % 15,
           bottomWearColor: (currentCount + 5) % 15,
-          gender: 0,
-          nativity: 0,
           intent: BleIntent.presence,
           rssi: -40 - (currentCount % 50),
           lastSeen: now,
@@ -824,8 +828,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       // ── Lazy re-accept: if we already accepted this peer but they are
       // still broadcasting requestConnection (meaning they missed our
       // accept), re-broadcast the accept so it gets delivered.
-      if (peer.intent == BleIntent.requestConnection &&
-          _isTargetedToMe(peer)) {
+      if (peer.intent == BleIntent.requestConnection && _isTargetedToMe(peer)) {
         final existingConn = _peerConnectionStatus[peerKey];
         if (existingConn == ConnectionStatus.accepted) {
           // They missed our accept — re-broadcast it.
@@ -895,7 +898,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
               peer.offlineUsername != null && peer.offlineUsername!.isNotEmpty
               ? '@${peer.offlineUsername}'
               : 'User ${displayPeerId(peer.myHash)}',
-          avatarId: peer.avatarId,
+          avatarDna: peer.avatarDna,
         ),
         rssi: peer.rssi,
       );
@@ -995,7 +998,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
             peer.offlineUsername != null && peer.offlineUsername!.isNotEmpty
             ? '@${peer.offlineUsername}'
             : 'User ${displayPeerId(peer.myHash)}',
-        avatarId: peer.avatarId,
+        avatarDna: peer.avatarDna,
       ),
       rssi: peer.rssi,
     );
@@ -1091,7 +1094,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
               peer.offlineUsername != null && peer.offlineUsername!.isNotEmpty
               ? '@${peer.offlineUsername}'
               : 'User ${displayPeerId(peer.myHash)}',
-          avatarId: peer.avatarId,
+          avatarDna: peer.avatarDna,
         ),
         rssi: peer.rssi,
       );
@@ -1129,7 +1132,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
               peer.offlineUsername != null && peer.offlineUsername!.isNotEmpty
               ? '@${peer.offlineUsername}'
               : 'User ${displayPeerId(peer.myHash)}',
-          avatarId: peer.avatarId,
+          avatarDna: peer.avatarDna,
         ),
         rssi: peer.rssi,
       );
@@ -1224,11 +1227,11 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
       final peer = DiscoveredPeer(
         deviceId: 'QA_$fakeId',
         myHash: fakeId,
-        avatarId: random.nextInt(256),
+        avatarDna: random.nextInt(256),
         topWearColor: random.nextInt(16),
         bottomWearColor: random.nextInt(16),
-        gender: random.nextInt(8),
-        nativity: random.nextInt(32),
+        gender: random.nextInt(4), // genderOptions.length is 4
+        nativity: random.nextInt(28), // nativityOptions.length is 28
         intent: BleIntent.presence,
         rssi: -40 - random.nextInt(56), // Fluctuates between -40 and -95
         lastSeen: DateTime.now(),
@@ -1258,7 +1261,7 @@ class NearbyController extends GetxController with WidgetsBindingObserver {
     final peer = DiscoveredPeer(
       deviceId: 'Blink_$fakeId',
       myHash: fakeId,
-      avatarId: 0,
+      avatarDna: 0,
       topWearColor: 0,
       bottomWearColor: 0,
       gender: 0,

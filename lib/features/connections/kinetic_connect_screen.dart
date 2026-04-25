@@ -162,7 +162,7 @@ class _KineticConnectScreenState extends State<KineticConnectScreen> with Ticker
       deviceId: 'test_123',
       myHash: 't_hash',
       offlineUsername: 'Test User',
-      avatarId: 1,
+      avatarDna: 1,
       intent: BleIntent.presence,
       rssi: -40,
       lastSeen: DateTime.now(),
@@ -579,7 +579,7 @@ class _KineticConnectScreenState extends State<KineticConnectScreen> with Ticker
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         image: DecorationImage(
-                          image: AssetImage(AppAssets.getAvatarPath(_acceptedPeer!.avatarId)),
+                          image: AssetImage(AppAssets.getAvatarPath(_acceptedPeer!.avatarDna)),
                           fit: BoxFit.cover,
                         ),
                       ),

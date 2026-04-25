@@ -15,11 +15,9 @@ class IdentityService extends GetxService {
   static const _keyCreatedAt = 'offline_user_created_at';
   static const _keyUsername = 'offline_user_username';
 
-  static const _keyAvatar = 'offline_user_avatar';
+  static const _keyAvatarDna = 'offline_user_avatar_dna';
   static const _keyTopWearColor = 'offline_user_top_wear';
   static const _keyBottomWearColor = 'offline_user_bottom_wear';
-  static const _keyGender = 'offline_user_gender';
-  static const _keyNativity = 'offline_user_nativity';
   static const _keyLastWardrobeUpdate = 'offline_user_last_wardrobe_update';
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -62,7 +60,7 @@ class IdentityService extends GetxService {
         final un = await _storage.read(key: _keyUsername) ?? 'User';
 
         final av =
-            int.tryParse(await _storage.read(key: _keyAvatar) ?? '0') ?? 0;
+            int.tryParse(await _storage.read(key: _keyAvatarDna) ?? '0') ?? 0;
         final topColor =
             int.tryParse(await _storage.read(key: _keyTopWearColor) ?? '0') ??
             0;
@@ -71,19 +69,13 @@ class IdentityService extends GetxService {
               await _storage.read(key: _keyBottomWearColor) ?? '0',
             ) ??
             0;
-        final gId =
-            int.tryParse(await _storage.read(key: _keyGender) ?? '0') ?? 0;
-        final nId =
-            int.tryParse(await _storage.read(key: _keyNativity) ?? '0') ?? 0;
 
         _identity = OfflineIdentity(
           offlineId: existingId,
           username: un,
-          avatarId: av,
+          avatarDna: av,
           topWearColor: topColor,
           bottomWearColor: bottomColor,
-          gender: gId,
-          nativity: nId,
           createdAt: createdAtStr != null
               ? DateTime.parse(createdAtStr)
               : DateTime.now(),
@@ -104,20 +96,16 @@ class IdentityService extends GetxService {
       await _storage.write(key: _keyId, value: hexId);
       await _storage.write(key: _keyUsername, value: fallbackUn);
       await _storage.write(key: _keyCreatedAt, value: now.toIso8601String());
-      await _storage.write(key: _keyAvatar, value: '0');
+      await _storage.write(key: _keyAvatarDna, value: '0');
       await _storage.write(key: _keyTopWearColor, value: '0');
       await _storage.write(key: _keyBottomWearColor, value: '0');
-      await _storage.write(key: _keyGender, value: '0');
-      await _storage.write(key: _keyNativity, value: '0');
 
       _identity = OfflineIdentity(
         offlineId: hexId,
         username: fallbackUn,
-        avatarId: 0,
+        avatarDna: 0,
         topWearColor: 0,
         bottomWearColor: 0,
-        gender: 0,
-        nativity: 0,
         createdAt: now,
       );
 
@@ -160,28 +148,22 @@ class IdentityService extends GetxService {
   }
 
   Future<void> setTraits({
-    required int avatarId,
+    required int avatarDna,
     required int topWearColor,
     required int bottomWearColor,
-    required int gender,
-    required int nativity,
   }) async {
-    await _storage.write(key: _keyAvatar, value: avatarId.toString());
+    await _storage.write(key: _keyAvatarDna, value: avatarDna.toString());
     await _storage.write(key: _keyTopWearColor, value: topWearColor.toString());
     await _storage.write(
       key: _keyBottomWearColor,
       value: bottomWearColor.toString(),
     );
-    await _storage.write(key: _keyGender, value: gender.toString());
-    await _storage.write(key: _keyNativity, value: nativity.toString());
     await confirmWardrobe();
 
     _identity = _identity?.copyWith(
-      avatarId: avatarId,
+      avatarDna: avatarDna,
       topWearColor: topWearColor,
       bottomWearColor: bottomWearColor,
-      gender: gender,
-      nativity: nativity,
     );
   }
 

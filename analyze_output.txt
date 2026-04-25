@@ -1,0 +1,39 @@
+Analyzing offline_connect...                                    
+
+  error • The named parameter 'avatarId' isn't defined • lib/core/models/user_profile.dart:50:7 • undefined_named_parameter
+  error • Undefined name 'avatarId' • lib/core/models/user_profile.dart:60:17 • undefined_identifier
+  error • The getter 'avatarId' isn't defined for the type 'UserProfile' • lib/features/chat/chat_screen.dart:116:37 • undefined_getter
+  error • The getter 'avatarId' isn't defined for the type 'UserProfile' • lib/features/connections/connections_screen.dart:503:34 • undefined_getter
+  error • The getter 'avatarId' isn't defined for the type 'UserProfile' • lib/features/connections/connections_screen.dart:512:33 • undefined_getter
+  error • The named parameter 'avatarId' isn't defined • lib/features/connections/kinetic_connect_screen.dart:165:7 • undefined_named_parameter
+  error • The getter 'avatarId' isn't defined for the type 'DiscoveredPeer' • lib/features/connections/kinetic_connect_screen.dart:582:84 • undefined_getter
+  error • The named parameter 'avatarId' isn't defined • lib/features/nearby/nearby_controller.dart:901:11 • undefined_named_parameter
+  error • The getter 'avatarId' isn't defined for the type 'DiscoveredPeer' • lib/features/nearby/nearby_controller.dart:901:26 • undefined_getter
+  error • The named parameter 'avatarId' isn't defined • lib/features/nearby/nearby_controller.dart:1001:9 • undefined_named_parameter
+  error • The getter 'avatarId' isn't defined for the type 'DiscoveredPeer' • lib/features/nearby/nearby_controller.dart:1001:24 • undefined_getter
+  error • The named parameter 'avatarId' isn't defined • lib/features/nearby/nearby_controller.dart:1097:11 • undefined_named_parameter
+  error • The getter 'avatarId' isn't defined for the type 'DiscoveredPeer' • lib/features/nearby/nearby_controller.dart:1097:26 • undefined_getter
+  error • The named parameter 'avatarId' isn't defined • lib/features/nearby/nearby_controller.dart:1135:11 • undefined_named_parameter
+  error • The getter 'avatarId' isn't defined for the type 'DiscoveredPeer' • lib/features/nearby/nearby_controller.dart:1135:26 • undefined_getter
+  error • The named parameter 'avatarId' isn't defined • lib/features/nearby/nearby_controller.dart:1230:9 • undefined_named_parameter
+  error • The named parameter 'gender' isn't defined • lib/features/nearby/nearby_controller.dart:1233:9 • undefined_named_parameter
+  error • The named parameter 'nativity' isn't defined • lib/features/nearby/nearby_controller.dart:1234:9 • undefined_named_parameter
+  error • The named parameter 'avatarId' isn't defined • lib/features/nearby/nearby_controller.dart:1264:7 • undefined_named_parameter
+  error • The named parameter 'gender' isn't defined • lib/features/nearby/nearby_controller.dart:1267:7 • undefined_named_parameter
+  error • The named parameter 'nativity' isn't defined • lib/features/nearby/nearby_controller.dart:1268:7 • undefined_named_parameter
+  error • The getter 'avatarId' isn't defined for the type 'DiscoveredPeer' • lib/features/nearby/nearby_screen.dart:690:55 • undefined_getter
+  error • The getter 'gender' isn't defined for the type 'DiscoveredPeer' • lib/features/nearby/nearby_screen.dart:893:41 • undefined_getter
+  error • The getter 'nativity' isn't defined for the type 'DiscoveredPeer' • lib/features/nearby/nearby_screen.dart:894:46 • undefined_getter
+  error • The getter 'avatarId' isn't defined for the type 'DiscoveredPeer' • lib/features/nearby/nearby_screen.dart:1077:59 • undefined_getter
+  error • The named parameter 'avatarId' isn't defined • lib/features/profile/profile_controller.dart:139:7 • undefined_named_parameter
+  error • The named parameter 'avatarDna' is required, but there's no corresponding argument • test/ble_payload_test.dart:15:24 • missing_required_argument
+  error • The named parameter 'avatarId' isn't defined • test/ble_payload_test.dart:18:9 • undefined_named_parameter
+  error • The named parameter 'gender' isn't defined • test/ble_payload_test.dart:21:9 • undefined_named_parameter
+  error • The named parameter 'nativity' isn't defined • test/ble_payload_test.dart:22:9 • undefined_named_parameter
+  error • The named parameter 'avatarDna' is required, but there's no corresponding argument • test/ble_payload_test.dart:54:24 • missing_required_argument
+  error • The named parameter 'avatarId' isn't defined • test/ble_payload_test.dart:58:9 • undefined_named_parameter
+  error • The named parameter 'gender' isn't defined • test/ble_payload_test.dart:61:9 • undefined_named_parameter
+  error • The named parameter 'nativity' isn't defined • test/ble_payload_test.dart:62:9 • undefined_named_parameter
+  error • The named parameter 'avatarId' isn't defined • test/local_db_service_test.dart:83:9 • undefined_named_parameter
+
+35 issues found. (ran in 5.9s)

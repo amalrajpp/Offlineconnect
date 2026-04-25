@@ -80,7 +80,7 @@ void main() {
       final profile = const UserProfile(
         offlineId: 'a1b2c3d4e5f6',
         displayName: 'EncryptedPeer',
-        avatarId: 5,
+        avatarDna: 5,
       );
 
       await dbService.upsertKnownUser(profile);

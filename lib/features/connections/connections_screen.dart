@@ -500,7 +500,7 @@ class ConnectedAvatar extends StatelessWidget {
     final localProfile = await localDb.getKnownUser(offlineId);
 
     String? photoUrl = localProfile?.photoUrl;
-    int avatarId = localProfile?.avatarId ?? 0;
+    int avatarDna = localProfile?.avatarDna ?? 0;
     bool hasProfile = localProfile != null;
 
     final firebase = Get.find<FirebaseSyncService>();
@@ -509,14 +509,14 @@ class ConnectedAvatar extends StatelessWidget {
       if (cloudProfile != null) {
         hasProfile = true;
         photoUrl = cloudProfile.photoUrl ?? photoUrl;
-        avatarId = cloudProfile.avatarId;
+        avatarDna = cloudProfile.avatarDna;
       }
     }
 
     return {
       'hasProfile': hasProfile,
       'photoUrl': photoUrl,
-      'avatarId': avatarId,
+      'avatarDna': avatarDna,
     };
   }
 
@@ -528,7 +528,7 @@ class ConnectedAvatar extends StatelessWidget {
         final data = snapshot.data;
         final hasProfile = data?['hasProfile'] == true;
         final photoUrl = data?['photoUrl'] as String?;
-        final avatarId = (data?['avatarId'] as int?) ?? 0;
+        final avatarDna = (data?['avatarDna'] as int?) ?? 0;
 
         if (photoUrl != null) {
           return CircleAvatar(
@@ -540,7 +540,7 @@ class ConnectedAvatar extends StatelessWidget {
           backgroundColor: Colors.green,
           backgroundImage: hasProfile
               ? ResizeImage(
-                  AssetImage(AppAssets.getAvatarPath(avatarId)),
+                  AssetImage(AppAssets.getAvatarPath(avatarDna)),
                   width: 96,
                   height: 96,
                 )

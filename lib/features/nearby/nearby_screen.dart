@@ -687,7 +687,7 @@ class _NearbyScreenState extends State<NearbyScreen>
             radius: 26,
             backgroundColor: theme.colorScheme.surfaceContainerHighest,
             backgroundImage: ResizeImage(
-              AssetImage(AppAssets.getAvatarPath(peer.avatarId)),
+              AssetImage(AppAssets.getAvatarPath(peer.avatarDna)),
               width: 104,
               height: 104,
             ),
@@ -1074,7 +1074,7 @@ class _IncomingRequestBanner extends StatelessWidget {
                 radius: 24,
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
                 backgroundImage: ResizeImage(
-                  AssetImage(AppAssets.getAvatarPath(peer.avatarId)),
+                  AssetImage(AppAssets.getAvatarPath(peer.avatarDna)),
                   width: 96,
                   height: 96,
                 ),

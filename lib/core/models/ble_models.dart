@@ -24,8 +24,8 @@ class DiscoveredPeer {
   /// The broadcasted 10-char username.
   final String? offlineUsername;
 
-  // ── Offline Bio Traits ──
-  final int avatarId;
+  // ── Offline Bio Traits (32-bit Packed DNA) ──
+  final int avatarDna;
   final int topWearColor;
   final int bottomWearColor;
   final int gender;
@@ -45,7 +45,7 @@ class DiscoveredPeer {
     required this.myHash,
     this.targetHash,
     this.offlineUsername,
-    this.avatarId = 0,
+    this.avatarDna = 0,
     this.topWearColor = 0,
     this.bottomWearColor = 0,
     this.gender = 0,
@@ -62,7 +62,7 @@ class DiscoveredPeer {
     BleIntent? intent,
     String? targetHash,
     String? offlineUsername,
-    int? avatarId,
+    int? avatarDna,
     int? topWearColor,
     int? bottomWearColor,
     int? gender,
@@ -73,7 +73,7 @@ class DiscoveredPeer {
       myHash: myHash,
       targetHash: targetHash ?? this.targetHash,
       offlineUsername: offlineUsername ?? this.offlineUsername,
-      avatarId: avatarId ?? this.avatarId,
+      avatarDna: avatarDna ?? this.avatarDna,
       topWearColor: topWearColor ?? this.topWearColor,
       bottomWearColor: bottomWearColor ?? this.bottomWearColor,
       gender: gender ?? this.gender,

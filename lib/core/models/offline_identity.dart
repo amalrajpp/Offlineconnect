@@ -10,11 +10,9 @@ class OfflineIdentity {
   final String username;
 
   // ── Offline Bitwise Bio Parameters ──
-  final int avatarId; // 0-255
+  final int avatarDna; // 32-bit (4-byte) packed DNA
   final int topWearColor; // 0-15
   final int bottomWearColor; // 0-15
-  final int gender; // 0-3
-  final int nativity; // 0-31
 
   /// Timestamp when the identity was first generated.
   final DateTime createdAt;
@@ -22,11 +20,9 @@ class OfflineIdentity {
   const OfflineIdentity({
     required this.offlineId,
     required this.username,
-    required this.avatarId,
+    required this.avatarDna,
     required this.topWearColor,
     required this.bottomWearColor,
-    required this.gender,
-    required this.nativity,
     required this.createdAt,
   });
 
@@ -36,11 +32,9 @@ class OfflineIdentity {
   Map<String, dynamic> toMap() => {
     'offlineId': offlineId,
     'username': username,
-    'avatarId': avatarId,
+    'avatarDna': avatarDna,
     'topWearColor': topWearColor,
     'bottomWearColor': bottomWearColor,
-    'gender': gender,
-    'nativity': nativity,
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -48,11 +42,9 @@ class OfflineIdentity {
     return OfflineIdentity(
       offlineId: map['offlineId'] as String,
       username: map['username'] as String? ?? 'User',
-      avatarId: map['avatarId'] as int? ?? 0,
+      avatarDna: map['avatarDna'] as int? ?? 0,
       topWearColor: map['topWearColor'] as int? ?? 0,
       bottomWearColor: map['bottomWearColor'] as int? ?? 0,
-      gender: map['gender'] as int? ?? 0,
-      nativity: map['nativity'] as int? ?? 0,
       createdAt: DateTime.parse(map['createdAt'] as String),
     );
   }
@@ -60,21 +52,17 @@ class OfflineIdentity {
   OfflineIdentity copyWith({
     String? offlineId,
     String? username,
-    int? avatarId,
+    int? avatarDna,
     int? topWearColor,
     int? bottomWearColor,
-    int? gender,
-    int? nativity,
     DateTime? createdAt,
   }) {
     return OfflineIdentity(
       offlineId: offlineId ?? this.offlineId,
       username: username ?? this.username,
-      avatarId: avatarId ?? this.avatarId,
+      avatarDna: avatarDna ?? this.avatarDna,
       topWearColor: topWearColor ?? this.topWearColor,
       bottomWearColor: bottomWearColor ?? this.bottomWearColor,
-      gender: gender ?? this.gender,
-      nativity: nativity ?? this.nativity,
       createdAt: createdAt ?? this.createdAt,
     );
   }

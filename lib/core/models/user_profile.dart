@@ -17,7 +17,7 @@ class UserProfile {
   final String? photoUrl;
 
   /// The local Bitwise Bio avatar ID.
-  final int avatarId;
+  final int avatarDna;
 
   /// Last time the user was seen online (from Firestore).
   final DateTime? lastOnline;
@@ -27,7 +27,7 @@ class UserProfile {
     required this.displayName,
     this.bio,
     this.photoUrl,
-    this.avatarId = 0,
+    this.avatarDna = 0,
     this.lastOnline,
   });
 
@@ -38,7 +38,7 @@ class UserProfile {
     'display_name': displayName,
     if (bio != null) 'bio': bio,
     if (photoUrl != null) 'photo_url': photoUrl,
-    'avatar_id': avatarId,
+    'avatar_id': avatarDna,
   };
 
   factory UserProfile.fromMap(Map<String, dynamic> map) {
@@ -47,7 +47,7 @@ class UserProfile {
       displayName: map['display_name'] as String,
       bio: map['bio'] as String?,
       photoUrl: map['photo_url'] as String?,
-      avatarId: map['avatar_id'] as int? ?? 0,
+      avatarDna: map['avatar_id'] as int? ?? 0,
     );
   }
 
@@ -57,7 +57,7 @@ class UserProfile {
     'displayName': displayName,
     if (bio != null) 'bio': bio,
     if (photoUrl != null) 'photoUrl': photoUrl,
-    'avatarId': avatarId,
+    'avatarId': avatarDna,
     if (firebaseUid != null) 'firebaseUid': firebaseUid,
     'lastOnline': FieldValue.serverTimestamp(),
   };
@@ -71,7 +71,7 @@ class UserProfile {
       displayName: data['displayName'] as String? ?? 'Unknown',
       bio: data['bio'] as String?,
       photoUrl: data['photoUrl'] as String?,
-      avatarId: data['avatarId'] as int? ?? 0,
+      avatarDna: data['avatarDna'] as int? ?? 0,
       lastOnline: data['lastOnline'] != null
           ? (data['lastOnline'] as Timestamp).toDate()
           : null,
@@ -82,14 +82,14 @@ class UserProfile {
     String? displayName,
     String? bio,
     String? photoUrl,
-    int? avatarId,
+    int? avatarDna,
   }) {
     return UserProfile(
       offlineId: offlineId,
       displayName: displayName ?? this.displayName,
       bio: bio ?? this.bio,
       photoUrl: photoUrl ?? this.photoUrl,
-      avatarId: avatarId ?? this.avatarId,
+      avatarDna: avatarDna ?? this.avatarDna,
       lastOnline: lastOnline,
     );
   }

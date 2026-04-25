@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/models/avatar_dna.dart';
 import '../../core/models/user_profile.dart';
 import '../../core/services/firebase_sync_service.dart';
 import '../../core/services/identity_service.dart';
@@ -112,12 +113,22 @@ class ProfileController extends GetxController {
     if (trimmedUsername.isEmpty || trimmedUsername.length > 10) return;
 
     await _identity.setUsername(trimmedUsername);
+
+    int avatarDna = AvatarDNA.pack(
+      hairStyle: avatarId,
+      hairColor: 0,
+      eyeShape: gender,
+      eyeColor: 0,
+      mouthShape: 0,
+      noseShape: nativity,
+      skinTone: 0,
+      extras: 0,
+    );
+
     await _identity.setTraits(
-      avatarId: avatarId,
+      avatarDna: avatarDna,
       topWearColor: topWearColor,
       bottomWearColor: bottomWearColor,
-      gender: gender,
-      nativity: nativity,
     );
 
     final newProfile = UserProfile(
@@ -125,7 +136,7 @@ class ProfileController extends GetxController {
       displayName: trimmedName,
       bio: bio?.trim().isEmpty == true ? null : bio?.trim(),
       photoUrl: photoUrl ?? profile.value?.photoUrl,
-      avatarId: avatarId,
+      avatarDna: avatarDna,
     );
 
     // Save locally.

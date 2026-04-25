@@ -1,3 +1,4 @@
+import "../utils/hash_engine.dart";
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -9,6 +10,7 @@ import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 
+import '../models/avatar_dna.dart';
 import '../models/ble_models.dart';
 import '../models/offline_identity.dart';
 import 'identity_service.dart';
@@ -126,8 +128,7 @@ class BleService extends GetxService {
           }
 
           // On older Androids, Location services (device-level toggle) must be enabled
-          final locationService =
-              await Permission.location.serviceStatus;
+          final locationService = await Permission.location.serviceStatus;
           if (!locationService.isEnabled) {
             Get.log('BleService: location services are disabled.');
             return false;
@@ -334,7 +335,9 @@ class BleService extends GetxService {
       // Subscribe to scan results BEFORE starting scan to catch the first burst.
       _scanSubscription = FlutterBluePlus.onScanResults.listen((results) {
         if (kDebugMode) {
-          Get.log('BLE_SCAN: onScanResults batch: ${results.length} result(s).');
+          Get.log(
+            'BLE_SCAN: onScanResults batch: ${results.length} result(s).',
+          );
         }
         for (final result in results) {
           final peer = _parseScanResult(result);
@@ -390,6 +393,23 @@ class BleService extends GetxService {
     BleIntent intent,
     String? targetHash,
   ) {
+    int senderHash = HashEngine.generate4ByteHash(identity.offlineId);
+
+    int tHash = 0;
+    if (intent != BleIntent.presence && targetHash != null) {
+      if (targetHash.length == 8) {
+        // If it's already a 4-byte hash (8 hex chars), parse it
+        tHash = int.parse(targetHash, radix: 16);
+      } else {
+        // Otherwise hash it
+        tHash = HashEngine.generate4ByteHash(targetHash);
+      }
+    }
+
+    final outfitColorByte =
+        ((identity.topWearColor & 0x0F) << 4) |
+        (identity.bottomWearColor & 0x0F);
+
     final data = Uint8List(_payloadLength);
 
     // Byte 0 – protocol version
@@ -398,35 +418,31 @@ class BleService extends GetxService {
     // Byte 1 – intent
     data[1] = intent.index;
 
-    // Bytes 2-7 – sender hash (6 bytes from 12-char hex string)
-    final myBytes = _hexToBytes(identity.bleHash);
-    for (var i = 0; i < 6; i++) {
-      data[2 + i] = i < myBytes.length ? myBytes[i] : 0;
-    }
+    // Bytes 2-5 – sender hash
+    data[2] = (senderHash >> 24) & 0xFF;
+    data[3] = (senderHash >> 16) & 0xFF;
+    data[4] = (senderHash >> 8) & 0xFF;
+    data[5] = senderHash & 0xFF;
 
-    // Bytes 8-13 – target hash or zeros
-    if (intent != BleIntent.presence && targetHash != null) {
-      final targetBytes = _hexToBytes(targetHash);
-      for (var i = 0; i < 6; i++) {
-        data[8 + i] = i < targetBytes.length ? targetBytes[i] : 0;
-      }
-    }
+    // Bytes 6-9 – target hash
+    data[6] = (tHash >> 24) & 0xFF;
+    data[7] = (tHash >> 16) & 0xFF;
+    data[8] = (tHash >> 8) & 0xFF;
+    data[9] = tHash & 0xFF;
 
-    // Byte 14 - Avatar ID
-    data[14] = identity.avatarId & 0xFF;
+    // Bytes 10-13 - Avatar DNA
+    data[10] = (identity.avatarDna >> 24) & 0xFF;
+    data[11] = (identity.avatarDna >> 16) & 0xFF;
+    data[12] = (identity.avatarDna >> 8) & 0xFF;
+    data[13] = identity.avatarDna & 0xFF;
 
-    // Byte 15 - Outfit Colors (4 bits each)
-    data[15] =
-        ((identity.topWearColor & 0x0F) << 4) |
-        (identity.bottomWearColor & 0x0F);
+    // Byte 14 - Outfit Colors (4 bits top, 4 bits bottom)
+    data[14] = outfitColorByte;
 
-    // Byte 16 - Bio Bitfield (Gender | Nativity)
-    data[16] =
-        ((identity.gender & 0x07) << 5) |
-        (identity.nativity & 0x1F); // Bytes 17-26 – sender username
+    // Bytes 15-26 – sender username
     final nameBytes = utf8.encode(identity.username);
-    for (var i = 0; i < 10; i++) {
-      data[17 + i] = i < nameBytes.length ? nameBytes[i] : 0;
+    for (var i = 0; i < 12; i++) {
+      data[15 + i] = i < nameBytes.length ? nameBytes[i] : 0;
     }
 
     // iOS uses a compact 16-byte UUID encoding to bypass ManufacturerData limits and Android LocalName caching.
@@ -435,20 +451,24 @@ class BleService extends GetxService {
       iosData[0] = 0x0C; // Magic Byte 1
       iosData[1] = 0x0C; // Magic Byte 2
       iosData[2] = ((_protocolVersion & 0x0F) << 4) | (intent.index & 0x0F);
-      iosData[3] = identity.avatarId & 0xFF;
-      iosData[4] =
-          ((identity.topWearColor & 0x0F) << 4) |
-          (identity.bottomWearColor & 0x0F);
-      iosData[5] = ((identity.gender & 0x07) << 5) | (identity.nativity & 0x1F);
-      for (var i = 0; i < 5; i++) {
-        iosData[6 + i] = i < myBytes.length ? myBytes[i] : 0;
-      }
-      if (intent != BleIntent.presence && targetHash != null) {
-        final targetBytes = _hexToBytes(targetHash);
-        for (var i = 0; i < 5; i++) {
-          iosData[11 + i] = i < targetBytes.length ? targetBytes[i] : 0;
-        }
-      }
+
+      iosData[3] = (identity.avatarDna >> 24) & 0xFF;
+      iosData[4] = (identity.avatarDna >> 16) & 0xFF;
+      iosData[5] = (identity.avatarDna >> 8) & 0xFF;
+      iosData[6] = identity.avatarDna & 0xFF;
+
+      iosData[7] = outfitColorByte;
+
+      iosData[8] = (senderHash >> 24) & 0xFF;
+      iosData[9] = (senderHash >> 16) & 0xFF;
+      iosData[10] = (senderHash >> 8) & 0xFF;
+      iosData[11] = senderHash & 0xFF;
+
+      iosData[12] = (tHash >> 24) & 0xFF;
+      iosData[13] = (tHash >> 16) & 0xFF;
+      iosData[14] = (tHash >> 8) & 0xFF;
+      iosData[15] = tHash & 0xFF;
+
       return iosData;
     }
 
@@ -541,11 +561,9 @@ class BleService extends GetxService {
                 senderProxyHash, // This will be matched to the full 6-byte hash locally in NearbyController
             targetHash: Get.find<IdentityService>().identity.offlineId,
             offlineUsername: null,
-            avatarId: 0,
+            avatarDna: 0,
             topWearColor: 0,
             bottomWearColor: 0,
-            gender: 0,
-            nativity: 0,
             intent: intent,
             rssi: result.rssi,
             lastSeen: result.timeStamp,
@@ -563,37 +581,68 @@ class BleService extends GetxService {
     int intentIndex;
     String myHash;
     List<int> targetBytes;
-    int avatarId;
-    int topWearColor;
-    int bottomWearColor;
-    int bioBits;
+    int avatarDna = 0;
+    int topWearColor = 0;
+    int bottomWearColor = 0;
+    String? targetHashStr;
+    String? offlineUsername;
 
     // Standard payload decoding (Android)
     if (raw.length >= 27) {
       if (raw[0] != _protocolVersion) return null;
       intentIndex = raw[1];
-      myHash = _bytesToHex(raw.sublist(2, 8));
-      targetBytes = raw.sublist(8, 14);
-      avatarId = raw[14];
-      topWearColor = (raw[15] >> 4) & 0x0F;
-      bottomWearColor = raw[15] & 0x0F;
-      bioBits = raw[16];
+
+      final senderInt =
+          (raw[2] << 24) | (raw[3] << 16) | (raw[4] << 8) | raw[5];
+      myHash = senderInt.toUnsigned(32).toRadixString(16).padLeft(8, '0');
+
+      final targetInt =
+          (raw[6] << 24) | (raw[7] << 16) | (raw[8] << 8) | raw[9];
+      final targetHex = targetInt
+          .toUnsigned(32)
+          .toRadixString(16)
+          .padLeft(8, '0');
+      targetBytes = targetInt == 0
+          ? [0, 0, 0, 0]
+          : [255]; // Proxy to pass `any` check below
+
+      avatarDna = (raw[10] << 24) | (raw[11] << 16) | (raw[12] << 8) | raw[13];
+      avatarDna = avatarDna.toUnsigned(32);
+
+      topWearColor = (raw[14] >> 4) & 0x0F;
+      bottomWearColor = raw[14] & 0x0F;
+
+      targetHashStr = targetHex;
+
+      final nameBytes = raw.sublist(15, 27);
+      final cleanNameBytes = nameBytes.where((b) => b != 0).toList();
+      offlineUsername = cleanNameBytes.isNotEmpty
+          ? utf8.decode(cleanNameBytes, allowMalformed: true)
+          : null;
     } else if (raw.length == 16 && raw[0] == 0x0C && raw[1] == 0x0C) {
       // iOS UUID encoding payload decoding
       final version = (raw[2] >> 4) & 0x0F;
       if (version != _protocolVersion) return null;
       intentIndex = raw[2] & 0x0F;
-      avatarId = raw[3];
-      topWearColor = (raw[4] >> 4) & 0x0F;
-      bottomWearColor = raw[4] & 0x0F;
-      bioBits = raw[5];
-      // Pad out the 5-byte hashes to 6 bytes for the app to treat them equally
-      final senderHashBytes = raw.sublist(6, 11).toList()..add(0);
-      myHash = _bytesToHex(senderHashBytes);
-      targetBytes = raw.sublist(11, 16).toList()..add(0);
-      debugPrint(
-        'BLE_DEBUG: iOS UUID successfully decoded! myHash=$myHash, target=${_bytesToHex(targetBytes)}',
-      );
+
+      avatarDna = (raw[3] << 24) | (raw[4] << 16) | (raw[5] << 8) | raw[6];
+      avatarDna = avatarDna.toUnsigned(32);
+
+      topWearColor = (raw[7] >> 4) & 0x0F;
+      bottomWearColor = raw[7] & 0x0F;
+
+      final senderInt =
+          (raw[8] << 24) | (raw[9] << 16) | (raw[10] << 8) | raw[11];
+      myHash = senderInt.toUnsigned(32).toRadixString(16).padLeft(8, '0');
+
+      final targetInt =
+          (raw[12] << 24) | (raw[13] << 16) | (raw[14] << 8) | raw[15];
+      final targetHex = targetInt
+          .toUnsigned(32)
+          .toRadixString(16)
+          .padLeft(8, '0');
+      targetBytes = targetInt == 0 ? [0, 0, 0, 0] : [255];
+      targetHashStr = targetHex;
     } else {
       debugPrint(
         'BLE_DEBUG: Dropping because unknown format! length=${raw.length}, byte0=${raw[0]}, byte1=${raw[1]}',
@@ -607,26 +656,18 @@ class BleService extends GetxService {
     }
     final intent = BleIntent.values[intentIndex];
     final hasTarget = targetBytes.any((b) => b != 0);
-    final targetHash = hasTarget ? _bytesToHex(targetBytes) : null;
+    final targetHash = hasTarget ? targetHashStr : null;
 
-    final gender = (bioBits >> 5) & 0x07;
-    final nativity = bioBits & 0x1F;
-
-    String? offlineUsername;
-    if (raw.length >= 27) {
-      final nameBytes = raw.sublist(17, 27);
-      final cleanNameBytes = nameBytes.where((b) => b != 0).toList();
-      offlineUsername = cleanNameBytes.isNotEmpty
-          ? utf8.decode(cleanNameBytes, allowMalformed: true)
-          : null;
-    }
+    final traits = AvatarDNA.unpack(avatarDna);
+    final gender = traits['eyeShape'] ?? 0;
+    final nativity = traits['noseShape'] ?? 0;
 
     return DiscoveredPeer(
       deviceId: result.device.remoteId.str,
       myHash: myHash,
       targetHash: targetHash,
       offlineUsername: offlineUsername,
-      avatarId: avatarId,
+      avatarDna: avatarDna,
       topWearColor: topWearColor,
       bottomWearColor: bottomWearColor,
       gender: gender,
