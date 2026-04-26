@@ -73,8 +73,9 @@ class BleService extends GetxService {
           final scan = await Permission.bluetoothScan.request();
           final connect = await Permission.bluetoothConnect.request();
           final advertise = await Permission.bluetoothAdvertise.request();
-          if (!scan.isGranted || !connect.isGranted || !advertise.isGranted)
+          if (!scan.isGranted || !connect.isGranted || !advertise.isGranted) {
             return false;
+          }
         } else {
           final location = await Permission.location.request();
           final ble = await Permission.bluetooth.request();
@@ -235,8 +236,9 @@ class BleService extends GetxService {
       bottomColor = raw[14] & 0x0F;
 
       final nameBytes = raw.sublist(15, 24).where((b) => b != 0).toList();
-      if (nameBytes.isNotEmpty)
+      if (nameBytes.isNotEmpty) {
         username = utf8.decode(nameBytes, allowMalformed: true);
+      }
     } else if (raw.length == 16) {
       // iOS
       intentIndex = raw[2] & 0x0F;
