@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:offline_connect/core/models/avatar_dna.dart';
+import 'package:offline_connect/core/models/ble_models.dart';
 import 'package:offline_connect/core/services/payload_builder.dart';
 import 'package:offline_connect/core/utils/hash_engine.dart';
 
@@ -22,6 +23,7 @@ void main() {
         outfitColor: 0xAB,
         myId: 'user_123',
         targetId: 'user_456',
+        intent: BleIntent.presence,
       );
 
       expect(payload.length, 16);
@@ -48,9 +50,10 @@ void main() {
         myId: 'user_123',
         targetId: 'user_456',
         username: 'Amal',
+        intent: BleIntent.presence,
       );
 
-      expect(payload.length, 27);
+      expect(payload.length, 24);
       expect(payload[0], 0x01);
       expect(payload[14], 0xAB);
 

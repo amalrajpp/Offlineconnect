@@ -116,6 +116,7 @@ class BleService extends GetxService {
               (identity.bottomWearColor & 0x0F),
           myId: identity.offlineId,
           targetId: targetId ?? '',
+          intent: intent,
         );
         spoofedUuid = PayloadBuilder.formatAsUuid(payload);
       } else {
@@ -127,6 +128,7 @@ class BleService extends GetxService {
           myId: identity.offlineId,
           targetId: targetId ?? '',
           username: identity.username,
+          intent: intent,
         );
       }
 
@@ -223,16 +225,16 @@ class BleService extends GetxService {
     int bottomColor = 0;
     String? username;
 
-    if (raw.length >= 27) {
+    if (raw.length >= 24) {
       // Android
-      intentIndex = raw[1];
+      intentIndex = raw[1] & 0x0F;
       senderHashHex = _bytesToHex(raw.sublist(2, 6));
       targetHashHex = _bytesToHex(raw.sublist(6, 10));
       avatarDna = AvatarDNA.fromBytes(raw, 10);
       topColor = (raw[14] >> 4) & 0x0F;
       bottomColor = raw[14] & 0x0F;
 
-      final nameBytes = raw.sublist(15, 27).where((b) => b != 0).toList();
+      final nameBytes = raw.sublist(15, 24).where((b) => b != 0).toList();
       if (nameBytes.isNotEmpty)
         username = utf8.decode(nameBytes, allowMalformed: true);
     } else if (raw.length == 16) {
